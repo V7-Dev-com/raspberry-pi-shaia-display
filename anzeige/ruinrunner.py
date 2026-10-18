@@ -59,6 +59,7 @@ KAMERA_BESCHL = 360.0          # sanftes Anfahren und Bremsen (Pixel pro Sekunde
 KOPF = 94                      # Höhe der festen Kopfleiste (Uhr, Datum, Wetter)
 NACHT = (22, 6)                  # Lagerfeuer-Zeit (von, bis)
 HINTERGRUND_ZOOM = 0.85           # 1.0 = Original; kleiner = mehr Halle oben und unten sichtbar
+HINTERGRUND_HOCH = 5               # px, um die der Hintergrund höher sitzt (mehr Boden unten, weniger Decke)
 BODEN_ZEILE = 283                  # Zeile im Original-Hintergrund, auf der die Figuren stehen
 TRUHE_X = HALLE - 150          # feste Truhe ganz rechts in der Halle
 LAGER_X = 330                  # fester Platz am Lagerfeuer (Shaia sitzt links davon)
@@ -412,7 +413,7 @@ class Szene:
             panorama.paste(gross[n], (x, 0))
             x += gross[n].width
         links = (breite_ges - HALLE) // 2
-        versatz_y = FUSS - round(BODEN_ZEILE * z)
+        versatz_y = FUSS - round(BODEN_ZEILE * z) - HINTERGRUND_HOCH
         self.halle = Image.new("RGBA", (HALLE, H))
         self.halle.paste(panorama.crop((links, 0, links + HALLE, panorama.height)), (0, versatz_y))
         self.nacht_schicht = Image.new("RGBA", (W, H), (7, 16, 32, 62))     # ~24 % Nachtblau
