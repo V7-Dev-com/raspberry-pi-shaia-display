@@ -47,7 +47,8 @@ FB = "/dev/fb0"
 W, H = 480, 320
 FUSS = 243                     # Standlinie der Figuren
 LEISTE = 248                   # Oberkante des Info-Streifens unten (5 px Boden zwischen Füßen und Leiste)
-ANKER_X, ANKER_Y = 118, 246    # Fußpunkt in den 256er-Einzelbildern
+ANKER_X, ANKER_Y = 118, 241    # Fußpunkt in den 256er-Einzelbildern (Füße stehen so 5 px tiefer = auf dem Boden)
+ANIM_HEBEN = {"lagerfeuer": 5}   # Sitzpose reicht tiefer als die Stehposen - sonst versinkt sie in der Leiste
 SEITE_SEKUNDEN = 4             # so lange steht jeder Eintrag der großen Zeile unten
 FPS = 24                       # Obergrenze; beim Scrollen bremst die Übertragung (~20/s)
 SCHWERKRAFT = 1100.0
@@ -277,6 +278,8 @@ class Schritt:
 
 
 class Akteur:
+    HEBEN = 0                     # feste Korrektur der Standhöhe in px (nach oben)
+
     def __init__(self, anims, x, richtung=1):
         self.anims = anims
         self.x, self.hoehe, self.vy, self.vx_luft = x, 0.0, 0.0, 0.0
@@ -351,10 +354,13 @@ class Akteur:
             nr = 0
         b = (rechts if self.richtung > 0 else links)[nr]
         ax = ANKER_X if self.richtung > 0 else 256 - ANKER_X
-        return b.bild, int(self.x - ax + b.dx), int(FUSS - self.hoehe - ANKER_Y + b.dy)
+        heben = self.HEBEN + (ANIM_HEBEN.get(self.schritt.anim, 0) if self.schritt else 0)
+        return b.bild, int(self.x - ax + b.dx), int(FUSS - self.hoehe - ANKER_Y + b.dy - heben)
 
 
 class Skelett(Akteur):
+    HEBEN = 1                     # Skelett-Füße liegen im Bild 1 px tiefer als Shaias
+
     def __init__(self, anims, x, richtung):
         super().__init__(anims, x, richtung)
         self.lp = random.randint(3, 6)
