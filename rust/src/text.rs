@@ -225,13 +225,13 @@ fn tinte(img: &mut Img, m: &Maske, f: [u8; 4], dx: i32, dy: i32) {
     }
 }
 
-/// Deckung^0,65: schwache Randpixel werden kräftiger, volle bleiben voll.
+/// Deckung^0,45: schwache Randpixel werden kräftiger, volle bleiben voll.
 fn deckung_tabelle() -> &'static [u8; 256] {
     static T: std::sync::OnceLock<[u8; 256]> = std::sync::OnceLock::new();
     T.get_or_init(|| {
         let mut t = [0u8; 256];
         for (i, v) in t.iter_mut().enumerate() {
-            *v = ((i as f32 / 255.0).powf(0.65) * 255.0 + 0.5) as u8;
+            *v = ((i as f32 / 255.0).powf(0.45) * 255.0 + 0.5) as u8;
         }
         t
     })
