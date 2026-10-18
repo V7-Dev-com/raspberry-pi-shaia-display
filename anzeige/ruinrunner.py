@@ -58,7 +58,7 @@ KAMERA_TEMPO = 240.0           # Höchsttempo der Kamera in Pixel pro Sekunde
 KAMERA_BESCHL = 360.0          # sanftes Anfahren und Bremsen (Pixel pro Sekunde²)
 KOPF = 94                      # Höhe der festen Kopfleiste (Uhr, Datum, Wetter)
 NACHT = (22, 6)                  # Lagerfeuer-Zeit (von, bis)
-TRUHE_X = HALLE - 120          # feste Truhe ganz rechts in der Halle
+TRUHE_X = HALLE - 150          # feste Truhe ganz rechts in der Halle
 LAGER_X = 330                  # fester Platz am Lagerfeuer (Shaia sitzt links davon)
 
 
