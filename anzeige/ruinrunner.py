@@ -58,6 +58,8 @@ KAMERA_TEMPO = 240.0           # Höchsttempo der Kamera in Pixel pro Sekunde
 KAMERA_BESCHL = 360.0          # sanftes Anfahren und Bremsen (Pixel pro Sekunde²)
 KOPF = 94                      # Höhe der festen Kopfleiste (Uhr, Datum, Wetter)
 NACHT = (22, 6)                  # Lagerfeuer-Zeit (von, bis)
+HINTERGRUND_ZOOM = 0.85           # 1.0 = Original; kleiner = mehr Halle oben und unten sichtbar
+BODEN_ZEILE = 283                  # Zeile im Original-Hintergrund, auf der die Figuren stehen
 TRUHE_X = HALLE - 150          # feste Truhe ganz rechts in der Halle
 LAGER_X = 330                  # fester Platz am Lagerfeuer (Shaia sitzt links davon)
 
@@ -392,11 +394,27 @@ class Szene:
         self.essen = {n: [Image.open(os.path.join(SPRITES, f"item/item_food/item_{n}.png")).convert("RGBA")]
                       for n in ("chicken", "cheese", "bread", "potion_red", "potion_blue", "potion_green")}
         self.feuer_klein = lade_einfach("vfx/vfx_fire/vfx_fire*.png")
-        panorama = Image.new("RGBA", (1536, 384))
-        for i, n in enumerate(("01_dungeon_left", "02_dungeon_center", "03_dungeon_right")):
-            teil = Image.open(os.path.join(SPRITES, f"background/sprites_dungeon/{n}.png")).convert("RGBA")
-            panorama.paste(teil, (i * 512, 0))
-        self.halle = panorama.crop((0, 40, HALLE, 40 + H))
+        # Hintergrund etwas herausgezoomt, damit oben und unten mehr von der Halle zu sehen ist.
+        # Der Boden (Bildzeile BODEN_ZEILE des Originals) bleibt bei FUSS, die Figuren stehen also gleich.
+        teile = {n: Image.open(os.path.join(SPRITES, f"background/sprites_dungeon/{n}.png")).convert("RGBA")
+                 for n in ("01_dungeon_left", "02_dungeon_center", "03_dungeon_right")}
+        z = HINTERGRUND_ZOOM
+        gross = {n: t.resize((round(t.width * z), round(t.height * z)), Image.LANCZOS) for n, t in teile.items()}
+        mitte = gross["02_dungeon_center"]
+        reihe = ["01_dungeon_left"]
+        while sum(gross[n].width for n in reihe) + gross["03_dungeon_right"].width < HALLE:
+            reihe.append("02_dungeon_center")
+        reihe.append("03_dungeon_right")
+        breite_ges = sum(gross[n].width for n in reihe)
+        panorama = Image.new("RGBA", (breite_ges, gross["01_dungeon_left"].height))
+        x = 0
+        for n in reihe:
+            panorama.paste(gross[n], (x, 0))
+            x += gross[n].width
+        links = (breite_ges - HALLE) // 2
+        versatz_y = FUSS - round(BODEN_ZEILE * z)
+        self.halle = Image.new("RGBA", (HALLE, H))
+        self.halle.paste(panorama.crop((links, 0, links + HALLE, panorama.height)), (0, versatz_y))
         self.nacht_schicht = Image.new("RGBA", (W, H), (7, 16, 32, 62))     # ~24 % Nachtblau
         self.kamera = (HALLE - W) / 2
         self.kamera_v = 0.0
