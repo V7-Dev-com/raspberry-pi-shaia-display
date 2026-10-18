@@ -1,0 +1,22 @@
+[Unit]
+Description=Pixel-Welt auf dem 3,5-Zoll-Display (Uhr, Wetter, Pi-hole, Internet als Jump-'n'-Run)
+After=network-online.target pihole-FTL.service time-sync.target
+Wants=network-online.target
+Conflicts=pi-anzeige.service pi-ruinrunner.service
+
+[Service]
+User=anzeige
+Group=anzeige
+SupplementaryGroups=video pihole input
+ExecStartPre=+/bin/sh -c 'echo 0 > /sys/class/vtconsole/vtcon1/bind'
+ExecStart=/usr/bin/python3 /opt/pi-anzeige/pixelwelt.py
+ExecStopPost=+/bin/sh -c 'echo 1 > /sys/class/vtconsole/vtcon1/bind'
+Restart=always
+RestartSec=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

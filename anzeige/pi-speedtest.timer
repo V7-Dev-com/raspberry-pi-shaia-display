@@ -1,0 +1,10 @@
+[Unit]
+Description=Internet-Geschwindigkeit alle 3 Stunden messen
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=3h
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

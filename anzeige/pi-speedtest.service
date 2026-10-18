@@ -1,0 +1,16 @@
+[Unit]
+Description=Internet-Geschwindigkeit für die Info-Anzeige messen
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=anzeige
+Group=anzeige
+StateDirectory=pi-anzeige
+ExecStart=/usr/bin/python3 /opt/pi-anzeige/speedtest.py
+Nice=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes

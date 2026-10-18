@@ -1,0 +1,10 @@
+# Fremde Grafiken dürfen nicht veröffentlicht werden (Shaia: Weitergabe verboten)
+shaia/
+pixel-adventure-1/
+assets/
+codex-bilder/
+vorschau/
+*.zip
+__pycache__/
+github-bilder/roh/
+github-bilder/kampf_roh/
