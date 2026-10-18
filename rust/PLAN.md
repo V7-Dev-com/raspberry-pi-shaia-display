@@ -64,8 +64,14 @@ Stand und Entscheidungen stehen unten im Abschnitt „Fortschritt“.
 - [x] E data + touch
 - [x] F output (KMS/fb0/PNG) + main
 - [x] G speedtest
-- [ ] Messung auf dem Pi (Bau läuft auf dem Pi, Debian-Cargo 1.85)
-- [ ] Dienst umstellen (Python bleibt als Rückfall)
+- [x] Messung auf dem Pi (19.10.2026): Rust 22 % eines Kerns und 39 MB RAM gegen Python 27 % und 90 MB; KMS-Ausgabe läuft (Plane RG16, Dumb-Buffer von `shaia-display`)
+- [ ] Dienst umstellen: `pi-shaia.service` ist installiert, aber nicht aktiviert; Python (`pi-ruinrunner`) bleibt beim Start Standard, bis v2 einen Tag lief
 
 Werkzeuge: `bin/shot` (Testbilder wie `bildschirmfotos.py`), `bin/hudtest` (Oberfläche mit festen Eingaben),
 `bin/sim` (Dauerlauf), `bin/metrics` (Schriftmaße).
+
+## Hinweise
+
+- Bauen auf dem Pi: `apt install cargo build-essential`, dann `nice -n 19 taskset -c 3 cargo build --release --locked`.
+  Ohne Lüfter heizt ein Bau auf allen Kernen den Pi bis ~83 °C (Drosselung); einen Kern zu nehmen hält ihn bei ~72 °C. Dauert ca. 15 Minuten.
+- `rust-version = "1.85"` entspricht dem Cargo von Debian Trixie; das Lockfile ist darauf aufgelöst.

@@ -1,0 +1,23 @@
+[Unit]
+Description=Shaia-Anzeige (Rust) auf dem 3,5-Zoll-Display (Uhr, Wetter, Pi-hole, Internet)
+After=network-online.target pihole-FTL.service time-sync.target
+Wants=network-online.target
+Conflicts=pi-ruinrunner.service pi-anzeige.service pi-pixelwelt.service
+
+[Service]
+User=anzeige
+Group=anzeige
+SupplementaryGroups=video pihole input
+ExecStartPre=+/bin/sh -c 'echo 0 > /sys/class/vtconsole/vtcon1/bind'
+ExecStart=/opt/pi-anzeige/shaia-display
+ExecStopPost=+/bin/sh -c 'echo 1 > /sys/class/vtconsole/vtcon1/bind'
+Restart=always
+RestartSec=10
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
