@@ -203,6 +203,8 @@ pub struct Assets {
     pub kugel_bilder: HashMap<&'static str, Rc<Vec<Img>>>,
     pub funkeln_klein: Rc<Vec<Img>>,
     pub halle: Img,
+    /// dieselbe Halle mit der Nachtschicht (~24 % Nachtblau) schon eingerechnet
+    pub halle_nacht: Img,
 }
 
 impl Assets {
@@ -234,6 +236,7 @@ impl Assets {
         let funkeln_klein = Rc::new(
             vfx["twinkle"].iter().map(|b| b.skaliert((b.w / 2).max(1), (b.h / 2).max(1), FilterType::Nearest)).collect(),
         );
+        let halle = lade_halle(sprites)?;
         Ok(Assets {
             shaia,
             skelett,
@@ -246,9 +249,19 @@ impl Assets {
             essen,
             kugel_bilder,
             funkeln_klein,
-            halle: lade_halle(sprites)?,
+            halle_nacht: nacht_halle(&halle),
+            halle,
         })
     }
+}
+
+/// Nachtschicht (7, 16, 32, Alpha 62) einmal über die ganze Halle gerechnet statt in jedem Bild.
+pub fn nacht_halle(halle: &Img) -> Img {
+    let mut n = halle.clone();
+    for p in n.d.chunks_exact_mut(4) {
+        crate::gfx::mische(p, &[7, 16, 32, 62]);
+    }
+    n
 }
 
 /// Hintergrund etwas herausgezoomt, damit oben und unten mehr von der Halle zu sehen ist.

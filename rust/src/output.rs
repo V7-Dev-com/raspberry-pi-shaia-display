@@ -109,10 +109,9 @@ impl Ausgabe {
                 if let Ok(mut map) = k.karte.map_dumb_buffer(&mut k.db) {
                     let ziel = map.as_mut();
                     for y in oben..unten {
-                        for x in 0..W {
-                            let v = neu[y * W + x].to_le_bytes();
-                            ziel[y * pitch + x * 2] = v[0];
-                            ziel[y * pitch + x * 2 + 1] = v[1];
+                        let zeile = &mut ziel[y * pitch..y * pitch + W * 2];
+                        for (d, v) in zeile.chunks_exact_mut(2).zip(&neu[y * W..(y + 1) * W]) {
+                            d.copy_from_slice(&v.to_le_bytes());
                         }
                     }
                 }

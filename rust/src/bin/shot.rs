@@ -56,7 +56,7 @@ impl Werkstatt {
             laufzeit: "5 h 12 min".into(), seite,
         };
         let _ = &self.sf;
-        sz.statisch = Some(hud::zeichnen(&mut sf, &self.stil, W as i32, H as i32, 94, 248, &e).0);
+        sz.statisch_setzen(hud::zeichnen(&mut sf, &self.stil, W as i32, H as i32, 94, 248, &e).0);
     }
 
     fn lauf(&self, sz: &mut Szene, sekunden: f64, bis: Option<&dyn Fn(&Szene) -> bool>, stunde: u32, offline: bool) -> bool {

@@ -233,6 +233,8 @@ impl Img {
     }
 
     /// Gauß-Weichzeichner wie Pillow: drei Kasten-Durchläufe mit Bruchteil-Radius, Randpixel wiederholt.
+    /// Gerechnet wird nur im Bereich um die sichtbaren Pixel (Rand = Reichweite der drei Durchläufe),
+    /// das Ergebnis ist dasselbe wie auf dem ganzen Bild.
     pub fn weichzeichnen(&self, radius: f32) -> Img {
         let passes = 3.0f32;
         let sigma2 = radius * radius / passes;
@@ -240,12 +242,21 @@ impl Img {
         let l = ((l_gross - 1.0) / 2.0).floor();
         let a = (2.0 * l + 1.0) * (l * (l + 1.0) - 3.0 * sigma2) / (6.0 * (sigma2 - (l + 1.0) * (l + 1.0)));
         let r = l + a;
-        let mut cur = self.clone();
+        let Some((x0, y0, x1, y1)) = self.inhalt() else { return self.clone() };
+        let rand = 3 * (r.floor() as i32 + 2);
+        let (bx0, by0) = ((x0 as i32 - rand).max(0), (y0 as i32 - rand).max(0));
+        let (bx1, by1) = ((x1 as i32 + rand).min(self.w as i32), (y1 as i32 + rand).min(self.h as i32));
+        let mut teil = self.ausschnitt(bx0, by0, (bx1 - bx0) as usize, (by1 - by0) as usize);
         for _ in 0..3 {
-            cur = kasten(&cur, r, true);
-            cur = kasten(&cur, r, false);
+            kasten(&mut teil, r, true);
+            kasten(&mut teil, r, false);
         }
-        cur
+        let mut aus = self.clone();
+        for d in aus.d.iter_mut() {
+            *d = 0;
+        }
+        aus.einsetzen(&teil, bx0, by0);
+        aus
     }
 
     pub fn nach_rgb565(&self, ziel: &mut [u16]) {
@@ -288,30 +299,36 @@ pub fn mische(ziel: &mut [u8], q: &[u8]) {
     ziel[3] = ((ra + 127) / 255).min(255) as u8;
 }
 
-/// Ein Kasten-Durchlauf in einer Richtung mit Radius r (Bruchteil für die Randpixel).
-fn kasten(q: &Img, r: f32, waagerecht: bool) -> Img {
+/// Ein Kasten-Durchlauf in einer Richtung mit Radius r (Bruchteil für die Randpixel); gleitende Summe.
+fn kasten(q: &mut Img, r: f32, waagerecht: bool) {
     let ri = r.floor() as i32;
     let fr = r - ri as f32;
     let fenster = (2 * ri + 1) as f32 + 2.0 * fr;
     let (laenge, zeilen) = if waagerecht { (q.w, q.h) } else { (q.h, q.w) };
-    let mut o = q.clone();
+    let (schritt, zeilenschritt) = if waagerecht { (4, q.w * 4) } else { (q.w * 4, 4) };
+    let mut linie = vec![0u8; laenge + 2 * (ri as usize + 1)];
+    let pad = ri as usize + 1;
     for z in 0..zeilen {
-        let idx = |i: i32| -> usize {
-            let i = i.clamp(0, laenge as i32 - 1) as usize;
-            if waagerecht { (z * q.w + i) * 4 } else { (i * q.w + z) * 4 }
-        };
+        let basis = z * zeilenschritt;
         for k in 0..4 {
-            for i in 0..laenge as i32 {
-                let mut s = 0.0f32;
-                for j in -ri..=ri {
-                    s += q.d[idx(i + j) + k] as f32;
-                }
-                s += fr * (q.d[idx(i - ri - 1) + k] as f32 + q.d[idx(i + ri + 1) + k] as f32);
-                o.d[idx(i) + k] = (s / fenster + 0.5).clamp(0.0, 255.0) as u8;
+            for i in 0..laenge {
+                linie[pad + i] = q.d[basis + i * schritt + k];
+            }
+            let (erst, letzt) = (linie[pad], linie[pad + laenge - 1]);
+            for i in 0..pad {
+                linie[i] = erst;
+                linie[pad + laenge + i] = letzt;
+            }
+            // Summe des Fensters für i = 0: Indizes pad-ri ..= pad+ri
+            let mut summe: i32 = linie[pad - ri as usize..=pad + ri as usize].iter().map(|v| *v as i32).sum();
+            for i in 0..laenge {
+                let rand = linie[pad + i - ri as usize - 1] as f32 + linie[pad + i + ri as usize + 1] as f32;
+                let wert = (summe as f32 + fr * rand) / fenster + 0.5;
+                q.d[basis + i * schritt + k] = wert.clamp(0.0, 255.0) as u8;
+                summe += linie[pad + i + ri as usize + 1] as i32 - linie[pad + i - ri as usize] as i32;
             }
         }
     }
-    o
 }
 
 #[cfg(test)]

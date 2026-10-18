@@ -395,8 +395,9 @@ pub struct Szene {
     pub kamera: f64,
     pub kamera_v: f64,
     pub statisch: Option<Img>,
+    /// je Zeile der Oberfläche: 0 leer, 1 ganz deckend, 2 gemischt
+    statisch_zeilen: Vec<u8>,
     naechste_id: u32,
-    nacht_schicht: Img,
 }
 
 impl Szene {
@@ -412,8 +413,24 @@ impl Szene {
             nacht: false, truhe_x: TRUHE_X, truhe_seit: None, truhe_zu_seit: None, truhe_besuch: false, truhe_ab,
             truhe_fuer_stunde: stunde, spaziergang_ab, bonus_ab: jetzt + 45.0, letzter_angriff: None, sieg: false,
             lager_ab: 0.0, verzaubert_im_kampf: false, kamera: (HF - WF) / 2.0, kamera_v: 0.0, statisch: None,
-            naechste_id: 1, nacht_schicht: Img::gefuellt(W, H, [7, 16, 32, 62]),
+            statisch_zeilen: vec![], naechste_id: 1,
         }
+    }
+
+    /// Neue Oberfläche (Kopf, Fuß, Text) setzen und je Zeile merken, was beim Zeichnen nötig ist.
+    pub fn statisch_setzen(&mut self, img: Img) {
+        self.statisch_zeilen = (0..img.h)
+            .map(|y| {
+                let alpha = (0..img.w).map(|x| img.d[(y * img.w + x) * 4 + 3]);
+                let (mut leer, mut voll) = (true, true);
+                for a in alpha {
+                    leer &= a == 0;
+                    voll &= a == 255;
+                }
+                if leer { 0 } else if voll { 1 } else { 2 }
+            })
+            .collect();
+        self.statisch = Some(img);
     }
 
     fn uniform(&mut self, lo: f64, hi: f64) -> f64 {
@@ -1252,10 +1269,7 @@ impl Szene {
     // ---------- zeichnen ----------
     pub fn zeichnen(&mut self, jetzt: f64) -> Img {
         let k = self.kamera.round() as i32;
-        let mut bild = self.a.halle.ausschnitt(k, 0, W, H);
-        if self.nacht {
-            bild.darueber(&self.nacht_schicht, 0, 0);
-        }
+        let mut bild = if self.nacht { &self.a.halle_nacht } else { &self.a.halle }.ausschnitt(k, 0, W, H);
         for kugel in &self.kugeln {
             let reihe = &self.a.kugel_bilder[kugel.element];
             let b = &reihe[(jetzt * 14.0) as usize % reihe.len()];
@@ -1319,7 +1333,18 @@ impl Szene {
             bild.darueber(&e.reihe[nr], e.x as i32 - k, e.y as i32);
         }
         if let Some(s) = &self.statisch {
-            bild.darueber(s, 0, 0);
+            for (y, art) in self.statisch_zeilen.iter().enumerate() {
+                let (von, bis) = (y * W * 4, (y + 1) * W * 4);
+                match art {
+                    0 => {}
+                    1 => bild.d[von..bis].copy_from_slice(&s.d[von..bis]),
+                    _ => {
+                        for (z, q) in bild.d[von..bis].chunks_exact_mut(4).zip(s.d[von..bis].chunks_exact(4)) {
+                            crate::gfx::mische(z, q);
+                        }
+                    }
+                }
+            }
         }
         bild
     }

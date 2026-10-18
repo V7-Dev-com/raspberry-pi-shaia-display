@@ -96,7 +96,8 @@ fn main() {
     let spi_hz = spi_takt();
     let (mut stil, mut stil_zeit) = (stil_lesen(), Instant::now());
     let mut letzt = Instant::now();
-    let mut vorher: Option<Vec<u16>> = None;
+    let mut vorher = vec![0u16; W * H];
+    let mut erstes = true;
     let mut puffer = vec![0u16; W * H];
     let mut letzter_schluessel = String::new();
     let mut letzte_blockiert: Option<i64> = None;
@@ -139,27 +140,27 @@ fn main() {
                 jetzt: jetzt_dt, wetter: wetter.as_ref(), pihole, netz: netz.as_ref(), warnungen: &warn,
                 cpu: cpu_temperatur(), laufzeit: laufzeit(), seite,
             };
-            szene.statisch = Some(hud::zeichnen(&mut sf, &stil, W as i32, H as i32, KOPF, LEISTE, &e).0);
+            szene.statisch_setzen(hud::zeichnen(&mut sf, &stil, W as i32, H as i32, KOPF, LEISTE, &e).0);
             letzter_schluessel = schluessel;
         }
 
         let bild = szene.zeichnen(zeit(anfang));
         bild.nach_rgb565(&mut puffer);
-        let (oben, unten) = match &vorher {
-            None => (0, H),
-            Some(v) => {
-                let geaendert: Vec<usize> = (0..H).filter(|y| puffer[y * W..(y + 1) * W] != v[y * W..(y + 1) * W]).collect();
-                match (geaendert.first(), geaendert.last()) {
-                    (Some(a), Some(b)) => (*a, b + 1),
-                    _ => (0, 0),
-                }
+        let (oben, unten) = if erstes {
+            (0, H)
+        } else {
+            let geaendert = |y: &usize| puffer[y * W..(y + 1) * W] != vorher[y * W..(y + 1) * W];
+            match ((0..H).find(geaendert), (0..H).rev().find(geaendert)) {
+                (Some(a), Some(b)) => (a, b + 1),
+                _ => (0, 0),
             }
         };
         let mut uebertragung = 0.0;
         if unten > oben {
             uebertragung = ausgabe.zeigen(&bild, &puffer, oben, unten, spi_hz);
         }
-        vorher = Some(puffer.clone());
+        erstes = false;
+        std::mem::swap(&mut vorher, &mut puffer);
 
         // nicht schneller liefern, als die Leitung überträgt - sonst stauen sich Bilder und es ruckelt
         let rest = (1.0f64 / FPS).max(uebertragung) - anfang.elapsed().as_secs_f64();

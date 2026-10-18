@@ -203,11 +203,14 @@ impl Maske {
     }
 }
 
-/// PIL-Verhalten: Tinte mit Maske linear in alle vier Kanäle mischen (nicht "über").
+/// Tinte mit Maske auf das Bild bringen. Echte Alpha-Mischung (Farbe bleibt voll, nur die Deckung
+/// folgt der Maske) und eine leichte Aufhellung der Randdeckung: die ungehintete Rasterung wirkt
+/// sonst dünner und blasser als PIL/FreeType.
 fn tinte(img: &mut Img, m: &Maske, f: [u8; 4], dx: i32, dy: i32) {
+    let tabelle = deckung_tabelle();
     for y in 0..m.h {
         for x in 0..m.w {
-            let c = m.d[y * m.w + x] as u32;
+            let c = m.d[y * m.w + x];
             if c == 0 {
                 continue;
             }
@@ -216,11 +219,22 @@ fn tinte(img: &mut Img, m: &Maske, f: [u8; 4], dx: i32, dy: i32) {
                 continue;
             }
             let i = (ty as usize * img.w + tx as usize) * 4;
-            for k in 0..4 {
-                img.d[i + k] = ((img.d[i + k] as u32 * (255 - c) + f[k] as u32 * c + 127) / 255) as u8;
-            }
+            let a = ((tabelle[c as usize] as u32 * f[3] as u32 + 127) / 255) as u8;
+            crate::gfx::mische(&mut img.d[i..i + 4], &[f[0], f[1], f[2], a]);
         }
     }
+}
+
+/// Deckung^0,65: schwache Randpixel werden kräftiger, volle bleiben voll.
+fn deckung_tabelle() -> &'static [u8; 256] {
+    static T: std::sync::OnceLock<[u8; 256]> = std::sync::OnceLock::new();
+    T.get_or_init(|| {
+        let mut t = [0u8; 256];
+        for (i, v) in t.iter_mut().enumerate() {
+            *v = ((i as f32 / 255.0).powf(0.65) * 255.0 + 0.5) as u8;
+        }
+        t
+    })
 }
 
 impl Schriften {

@@ -75,3 +75,16 @@ Werkzeuge: `bin/shot` (Testbilder wie `bildschirmfotos.py`), `bin/hudtest` (Ober
 - Bauen auf dem Pi: `apt install cargo build-essential`, dann `nice -n 19 taskset -c 3 cargo build --release --locked`.
   Ohne Lüfter heizt ein Bau auf allen Kernen den Pi bis ~83 °C (Drosselung); einen Kern zu nehmen hält ihn bei ~72 °C. Dauert ca. 15 Minuten.
 - `rust-version = "1.85"` entspricht dem Cargo von Debian Trixie; das Lockfile ist darauf aufgelöst.
+
+## Optimierung 19.10.2026 (nach der ersten Messung)
+
+| Maßnahme | Wirkung auf dem Pi |
+|---|---|
+| Weichzeichner nur im Textbereich, gleitende Summe statt Mehrfach-Summen (Ergebnis bitgleich) | Oberfläche neu zeichnen 302 ms → 12,6 ms (vorher ruckelte es alle 4 s kurz) |
+| Nacht-Halle einmal vorgerechnet | Nachtbild 3,8 ms → 1,3 ms |
+| Oberfläche zeilenweise: leere Zeilen überspringen, deckende kopieren | Zeichnen 1,3 ms → 0,9 ms |
+| Puffer tauschen statt kopieren, Zeilenkopie beim Display | weniger Speicherverkehr |
+
+Gemessen im Betrieb (60 s): **7 % eines Kerns** (5 % Nutzer + 2 % System), 40 MB RAM, 62 °C. Vorher Rust 22 %, Python 27 % und 90 MB.
+
+Schrift: Randdeckung^0,65 und echte Alpha-Mischung (vorher dunkelten die Ränder ab und die Schrift wirkte blass); Farben im Stil „glut“ etwas satter.
