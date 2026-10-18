@@ -2,7 +2,7 @@
 
 **Animated pixel-art display for the Raspberry Pi and Pi-hole: system status, weather and clock, with the heroine Shaia fighting in a dungeon.**
 
-![Shaia's Watch](github-bilder/overview.png)
+![Raspberry Pi Animation Display – Shaia](github-bilder/banner.png)
 
 Made for a Raspberry Pi that runs [Pi-hole](https://pi-hole.net/). A 3.5" SPI display shows the clock, date, weather, internet status and the Pi-hole statistics (blocked requests today), while Shaia fights skeletons in a scrolling dungeon. Every ad that Pi-hole blocks sends a skeleton. Version 1 is written in Python, a Rust rewrite is planned.
 
@@ -17,6 +17,14 @@ Made for a Raspberry Pi that runs [Pi-hole](https://pi-hole.net/). A 3.5" SPI di
 | Scene | Shaia in a scrolling dungeon hall. Each blocked request spawns a skeleton (some jump at her). Magic orbs fly in: she ducks, jumps or blocks from the front and gets hit from behind. Loot drops, a chest on the far right is opened now and then, a fixed campfire at night. Touch = jump |
 
 The display language is German by default; set `PI_SPRACHE=en` in the service environment for English.
+
+## Screenshots
+
+![Nine scenes](github-bilder/overview.png)
+
+Combat moments:
+
+![Combat scenes](github-bilder/overview-combat.png)
 
 ## Hardware and stack
 
