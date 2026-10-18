@@ -8,3 +8,4 @@ vorschau/
 __pycache__/
 github-bilder/roh/
 github-bilder/kampf_roh/
+rust/target/
