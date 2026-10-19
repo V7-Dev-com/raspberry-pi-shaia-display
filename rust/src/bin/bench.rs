@@ -20,8 +20,8 @@ fn main() {
             relative_humidity_2m: 73.0, is_day: Some(1), uv_index: Some(3.0), wind_gusts_10m: Some(20.0) },
         daily: Taeglich { temperature_2m_max: vec![24.0], temperature_2m_min: vec![12.0], precipitation_probability_max: vec![Some(30.0)] },
     };
-    let netz = Netz { ms: Some(4.0), offline_seit: None, speed: Some(Speed { down_mbit: 227.0, up_mbit: 70.0 }), pi_ip: Some("192.168.1.9".into()), router_ip: Some("192.168.1.1".into()) };
-    let e = Eingabe { jetzt: Local.with_ymd_and_hms(2026, 10, 18, stunde, 42, 0).unwrap(), wetter: Some(&w), pihole: Some((300, 120)),
+    let netz = Netz { ms: Some(4.0), offline_seit: None, speed: Some(Speed { down_mbit: 227.0, up_mbit: 70.0, zeit: 0 }), pi_ip: Some("192.168.1.9".into()), router_ip: Some("192.168.1.1".into()), router_ok: None };
+    let e = Eingabe { wetter_alter: 0, pihole_alter: 0, jetzt: Local.with_ymd_and_hms(2026, 10, 18, stunde, 42, 0).unwrap(), wetter: Some(&w), pihole: Some((300, 120)),
         netz: Some(&netz), warnungen: &[], cpu: Some(66.6), laufzeit: "5 h 12 min".into(), seite: 0 };
     let th = Instant::now();
     for _ in 0..10 {

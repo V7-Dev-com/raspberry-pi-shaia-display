@@ -37,7 +37,7 @@ impl Werkstatt {
         sz.kugel_ab = 1e9;
         sz.truhe_ab = 1e9;
         sz.truhe_fuer_stunde = stunde;
-        self.oberflaeche(&mut sz, &wetter(2, 20.0, 3.0), Some(Speed { down_mbit: 227.0, up_mbit: 70.0 }), false, 18, 42, 0);
+        self.oberflaeche(&mut sz, &wetter(2, 20.0, 3.0), Some(Speed { down_mbit: 227.0, up_mbit: 70.0, zeit: 0 }), false, 18, 42, 0);
         sz
     }
 
@@ -46,12 +46,12 @@ impl Werkstatt {
         let mut sf = Schriften::neu(assets_ordner().join("fonts"));
         let jetzt = Local.with_ymd_and_hms(2026, 10, 18, std, min, 0).unwrap();
         let netz = if offline {
-            Netz { ms: None, offline_seit: Some(Local.with_ymd_and_hms(2026, 10, 18, 18, 31, 0).unwrap()), speed: None, pi_ip: None, router_ip: None }
+            Netz { ms: None, offline_seit: Some(Local.with_ymd_and_hms(2026, 10, 18, 18, 31, 0).unwrap()), speed: None, pi_ip: None, router_ip: None, router_ok: None }
         } else {
-            Netz { ms: Some(5.0), offline_seit: None, speed, pi_ip: Some("192.168.1.9".into()), router_ip: Some("192.168.1.1".into()) }
+            Netz { ms: Some(5.0), offline_seit: None, speed, pi_ip: Some("192.168.1.9".into()), router_ip: Some("192.168.1.1".into()), router_ok: None }
         };
         let warn = hud::warnungen(Some(w));
-        let e = Eingabe {
+        let e = Eingabe { wetter_alter: 0, pihole_alter: 0,
             jetzt, wetter: Some(w), pihole: Some((300, 120)), netz: Some(&netz), warnungen: &warn, cpu: Some(66.6),
             laufzeit: "5 h 12 min".into(), seite,
         };
@@ -119,7 +119,7 @@ fn main() {
 
     let mut sz = ws.neu(5, nacht);
     sz.nacht = true;
-    ws.oberflaeche(&mut sz, &wetter(2, 20.0, 3.0), Some(Speed { down_mbit: 227.0, up_mbit: 70.0 }), false, 23, 10, 3);
+    ws.oberflaeche(&mut sz, &wetter(2, 20.0, 3.0), Some(Speed { down_mbit: 227.0, up_mbit: 70.0, zeit: 0 }), false, 23, 10, 3);
     sz.shaia.x = LAGER_X;
     sz.kamera = LAGER_X + 65.0 - W as f64 / 2.0;
     ws.lauf(&mut sz, 8.0, Some(&|s: &Szene| s.shaia.anim() == Some("lagerfeuer")), nacht, false);
@@ -132,7 +132,7 @@ fn main() {
     ws.foto(&mut sz, "7_offline.png");
 
     let mut sz = ws.neu(5, tag);
-    ws.oberflaeche(&mut sz, &wetter(95, 62.0, 9.0), Some(Speed { down_mbit: 227.0, up_mbit: 70.0 }), false, 18, 42, 0);
+    ws.oberflaeche(&mut sz, &wetter(95, 62.0, 9.0), Some(Speed { down_mbit: 227.0, up_mbit: 70.0, zeit: 0 }), false, 18, 42, 0);
     ws.foto(&mut sz, "8_warnungen.png");
 
     let mut sz = ws.neu(3, tag);

@@ -8,8 +8,8 @@ use chrono::{DateTime, Datelike, Local};
 use std::sync::OnceLock;
 
 pub type Rgb = [u8; 3];
-pub const WARN_GELB: Rgb = [225, 145, 20];
-pub const WARN_ROT: Rgb = [205, 40, 40];
+pub const WARN_GELB: Rgb = [255, 220, 100];
+pub const WARN_ROT: Rgb = [255, 120, 105];
 
 /// `PI_SPRACHE=en` schaltet die Anzeige auf Englisch (Standard: Deutsch).
 pub fn englisch() -> bool {
@@ -185,17 +185,17 @@ pub fn stil(name: &str) -> Stil {
             datum: ("SairaCondensed-Bold.ttf", 21), datum_farbe: [255, 255, 255], gross_datum: true,
             wert: ("SairaCondensed-ExtraBold.ttf", 36), wert_farbe: [255, 255, 255],
             label: ("JetBrainsMono[wght].ttf", 12), label_farbe: [255, 111, 9], label_gross: true, sperren: 1,
-            zeile: ("SairaCondensed-Bold.ttf", 19), zeile_farbe: [255, 255, 255], zeile2_farbe: [175, 180, 190],
-            gruen: [255, 140, 40], rot: [255, 59, 48], leiste_oben: ([10, 10, 13], [18, 19, 24]),
+            zeile: ("SairaCondensed-Bold.ttf", 19), zeile_farbe: [255, 255, 255], zeile2_farbe: [255, 255, 255],
+            gruen: [150, 235, 120], rot: [255, 105, 95], leiste_oben: ([10, 10, 13], [18, 19, 24]),
             leiste_unten: [10, 10, 13], linie: [255, 111, 9], deko: Deko::V7, kontur: 0, schatten: None,
         },
         "glut" => Stil {
             uhr: ("Rajdhani-Bold.ttf", 76), uhr_farbe: [255, 200, 85], glut: Some([239, 125, 87]),
-            datum: ("Rajdhani-SemiBold.ttf", 23), datum_farbe: [255, 236, 178], gross_datum: false,
-            wert: ("Rajdhani-Bold.ttf", 38), wert_farbe: [255, 214, 125],
-            label: ("Rajdhani-SemiBold.ttf", 17), label_farbe: [255, 184, 72], label_gross: false, sperren: 0,
-            zeile: ("Rajdhani-SemiBold.ttf", 21), zeile_farbe: [255, 236, 180], zeile2_farbe: [240, 190, 105],
-            gruen: [167, 240, 112], rot: [255, 90, 70], leiste_oben: ([14, 8, 5], [30, 16, 9]),
+            datum: ("Rajdhani-SemiBold.ttf", 23), datum_farbe: [255, 255, 255], gross_datum: false,
+            wert: ("Rajdhani-Bold.ttf", 38), wert_farbe: [255, 255, 255],
+            label: ("Rajdhani-SemiBold.ttf", 17), label_farbe: [255, 255, 255], label_gross: false, sperren: 0,
+            zeile: ("Rajdhani-SemiBold.ttf", 21), zeile_farbe: [255, 255, 255], zeile2_farbe: [255, 255, 255],
+            gruen: [167, 240, 112], rot: [255, 120, 105], leiste_oben: ([14, 8, 5], [30, 16, 9]),
             leiste_unten: [16, 9, 6], linie: [169, 120, 52], deko: Deko::Glut, kontur: 0, schatten: Some([0, 0, 0]),
         },
         "retro" => Stil {
@@ -203,8 +203,8 @@ pub fn stil(name: &str) -> Stil {
             datum: ("Silkscreen-Regular.ttf", 16), datum_farbe: [255, 255, 255], gross_datum: true,
             wert: ("Silkscreen-Bold.ttf", 32), wert_farbe: [255, 255, 255],
             label: ("Silkscreen-Regular.ttf", 16), label_farbe: [255, 138, 30], label_gross: true, sperren: 0,
-            zeile: ("Silkscreen-Regular.ttf", 16), zeile_farbe: [255, 255, 255], zeile2_farbe: [200, 205, 220],
-            gruen: [167, 240, 112], rot: [255, 80, 80], leiste_oben: ([17, 19, 31], [17, 19, 31]),
+            zeile: ("Silkscreen-Regular.ttf", 16), zeile_farbe: [255, 255, 255], zeile2_farbe: [255, 255, 255],
+            gruen: [167, 240, 112], rot: [255, 115, 110], leiste_oben: ([17, 19, 31], [17, 19, 31]),
             leiste_unten: [17, 19, 31], linie: [255, 138, 30], deko: Deko::Retro, kontur: 0,
             schatten: Some([60, 20, 0]),
         },
@@ -212,8 +212,8 @@ pub fn stil(name: &str) -> Stil {
             uhr: (DEJAVU_FETT, 64), uhr_farbe: [255, 255, 255], glut: None,
             datum: (DEJAVU_FETT, 20), datum_farbe: [255, 255, 255], gross_datum: false,
             wert: (DEJAVU_FETT, 32), wert_farbe: [255, 255, 255],
-            label: (DEJAVU_FETT, 16), label_farbe: [228, 234, 245], label_gross: false, sperren: 0,
-            zeile: (DEJAVU_FETT, 17), zeile_farbe: [255, 255, 255], zeile2_farbe: [228, 234, 245],
+            label: (DEJAVU_FETT, 16), label_farbe: [255, 255, 255], label_gross: false, sperren: 0,
+            zeile: (DEJAVU_FETT, 17), zeile_farbe: [255, 255, 255], zeile2_farbe: [255, 255, 255],
             gruen: [120, 255, 140], rot: [255, 110, 110], leiste_oben: ([2, 3, 8], [6, 9, 22]),
             leiste_unten: [3, 5, 12], linie: [60, 110, 200], deko: Deko::Klar, kontur: 1, schatten: None,
         },
@@ -278,9 +278,23 @@ pub struct Eingabe<'a> {
     pub pihole: Option<(i64, i64)>,
     pub netz: Option<&'a Netz>,
     pub warnungen: &'a [Warnung],
+    /// Alter der Wetter- und Pi-hole-Werte in Sekunden (0 = frisch/unbekannt)
+    pub wetter_alter: i64,
+    pub pihole_alter: i64,
     pub cpu: Option<f64>,
     pub laufzeit: String,
     pub seite: usize,
+}
+
+/// "Wetter vor 12 min" / "Weather 12 min ago"; Alter in Sekunden.
+fn alter_text(de: &str, en: &str, sek: i64) -> String {
+    let (zahl, einheit) = if sek < 3600 { ((sek / 60).max(1), "min") } else if sek < 86400 { (sek / 3600, "h") } else { (sek / 86400, "d") };
+    if englisch() { format!("{en} {zahl} {einheit} ago") } else { format!("{de} vor {zahl} {}", if einheit == "d" { "T" } else { einheit }) }
+}
+
+/// "Speedtest vor 2 h" / "Speedtest 2 h ago"; Alter in Sekunden.
+fn speedtest_alter(sek: i64) -> String {
+    alter_text("Speedtest", "Speedtest", sek)
 }
 
 /// Einträge der großen Wechselzeile unten: (Text, Farbe). Offline verdrängt alles.
@@ -290,42 +304,81 @@ pub fn laufschrift(s: &Stil, e: &Eingabe) -> Vec<(String, Rgb)> {
         None => (None, None, None),
     };
     if e.netz.is_some() && ms.is_none() {
+        // Das Display weiß nur, dass das Internet nicht erreichbar ist - mehr behauptet es nicht.
         if let Some(seit) = offline_seit {
-            return vec![(tr(&format!("OFFLINE seit {}", seit.format("%H:%M"))), s.rot)];
+            let zeit = seit.format("%H:%M");
+            let mut v = if englisch() {
+                vec![("No internet".to_string(), s.rot), (format!("since {zeit}"), s.rot)]
+            } else {
+                vec![("Kein Internet".to_string(), s.rot), (format!("seit {zeit}"), s.rot)]
+            };
+            match (e.netz.and_then(|n| n.router_ok), englisch()) {
+                (Some(true), false) => v.push(("Router erreichbar".into(), s.zeile_farbe)),
+                (Some(false), false) => v.push(("Router antwortet nicht".into(), s.zeile_farbe)),
+                (Some(true), true) => v.push(("Router reachable".into(), s.zeile_farbe)),
+                (Some(false), true) => v.push(("Router not responding".into(), s.zeile_farbe)),
+                _ => {}
+            }
+            return v;
         }
     }
     let mut v: Vec<(String, Rgb)> = Vec::new();
     for w in e.warnungen {
         let t = w.text.trim_start_matches(['⚠', '☀', '⚡', '❄', ' ']);
-        v.push((gross_wenn(s, t), if w.farbe == WARN_ROT { s.rot } else { [255, 190, 60] }));
+        v.push((gross_wenn(s, t), w.farbe));
     }
+    let wetter_alt = e.wetter_alter > 20 * 60;
+    let wf = if wetter_alt { s.zeile2_farbe } else { s.zeile_farbe };
     if let Some(w) = e.wetter {
         let (c, t) = (&w.current, &w.daily);
         let wort = capitalize(match wetter_wort(c.weather_code) {
             "" => "Wetter",
             x => x,
         });
-        let (mn, mx) = (t.temperature_2m_min.first().copied().unwrap_or(0.0), t.temperature_2m_max.first().copied().unwrap_or(0.0));
-        v.push((gross_wenn(s, &format!("{wort} {}–{}°", runden(mn), runden(mx))), s.zeile_farbe));
+        match (t.temperature_2m_min.first(), t.temperature_2m_max.first()) {
+            (Some(mn), Some(mx)) => v.push((gross_wenn(s, &format!("{wort} {}–{}°", runden(*mn), runden(*mx))), wf)),
+            _ => v.push((gross_wenn(s, wort.as_str()), wf)),
+        }
         if let Some(Some(regen)) = t.precipitation_probability_max.first() {
             if *regen >= 20.0 {
-                v.push((gross_wenn(s, &format!("Regen {} %", runden(*regen))), s.zeile_farbe));
+                v.push((gross_wenn(s, &format!("Regen {} %", runden(*regen))), wf));
             }
         }
         v.push((
-            gross_wenn(s, &format!("Gefühlt {}° · Wind {}", runden(c.apparent_temperature), runden(c.wind_speed_10m))),
-            s.zeile_farbe,
+            gross_wenn(s, &format!("Gefühlt {}° · Wind {} km/h", runden(c.apparent_temperature), runden(c.wind_speed_10m))),
+            wf,
         ));
         if w.ist_tag() && c.uv_index.is_some_and(|u| u >= 1.0) {
-            v.push((gross_wenn(s, &format!("UV-Index {:.0}", c.uv_index.unwrap())), s.zeile_farbe));
+            v.push((gross_wenn(s, &format!("UV-Index {:.0}", c.uv_index.unwrap())), wf));
+        }
+        if wetter_alt {
+            v.push((gross_wenn(s, &alter_text("Wetter", "Weather", e.wetter_alter)), s.zeile2_farbe));
         }
     }
     if let Some(ms) = ms {
         v.push((gross_wenn(s, &format!("Ping {ms:.0} ms")), s.gruen));
         if let Some(sp) = speed {
-            v.push((gross_wenn(s, &format!("↓{:.0}  ↑{:.0} Mbit/s", sp.down_mbit, sp.up_mbit)), s.gruen));
+            // Der Speedtest läuft nur alle paar Stunden - das Alter dazusagen, damit er nicht wie "jetzt" wirkt;
+            // Werte und Altershinweis werden gedämpft, sobald sie alt sind
+            let alter = if sp.zeit > 0 { (e.jetzt.timestamp() - sp.zeit).max(0) } else { 0 };
+            let farbe = if alter > 4 * 3600 { s.zeile2_farbe } else { s.gruen };
+            v.push((gross_wenn(s, &format!("↓{:.0}  ↑{:.0} Mbit/s", sp.down_mbit, sp.up_mbit)), farbe));
+            if sp.zeit > 0 {
+                v.push((gross_wenn(s, &speedtest_alter(alter)), s.zeile2_farbe));
+            }
         }
     }
+    if let Some((_, geblockt)) = e.pihole {
+        let alt = e.pihole_alter > 120;
+        v.push((gross_wenn(s, &format!("Pi-hole · {geblockt} geblockt")), if alt { s.zeile2_farbe } else { s.zeile_farbe }));
+        if alt {
+            v.push((gross_wenn(s, &alter_text("Pi-hole", "Pi-hole", e.pihole_alter)), s.zeile2_farbe));
+        }
+    }
+    if let Some(cpu) = e.cpu {
+        v.push((gross_wenn(s, &format!("CPU {cpu:.0} °C")), s.zeile2_farbe));
+    }
+    v.push((gross_wenn(s, &format!("Läuft {}", e.laufzeit)), s.zeile2_farbe));
     if let Some(n) = e.netz {
         if let Some(r) = &n.router_ip {
             v.push((gross_wenn(s, &format!("Router {r}")), s.zeile2_farbe));
@@ -334,13 +387,6 @@ pub fn laufschrift(s: &Stil, e: &Eingabe) -> Vec<(String, Rgb)> {
             v.push((gross_wenn(s, &format!("Pi {p}")), s.zeile2_farbe));
         }
     }
-    if let Some((_, geblockt)) = e.pihole {
-        v.push((gross_wenn(s, &format!("Pi-hole · {geblockt} geblockt")), s.zeile_farbe));
-    }
-    if let Some(cpu) = e.cpu {
-        v.push((gross_wenn(s, &format!("CPU {cpu:.0} °C")), s.zeile2_farbe));
-    }
-    v.push((gross_wenn(s, &format!("Läuft {}", e.laufzeit)), s.zeile2_farbe));
     v.into_iter().map(|(t, f)| (tr(&t), f)).collect()
 }
 
@@ -425,13 +471,13 @@ pub fn zeichnen(sf: &mut Schriften, stil_name: &str, w: i32, h: i32, kopf: i32, 
             Some(118.0), lab);
     }
 
-    // große Wechselzeile unten: Versalhöhe 34 px, nie unter 30 px
+    // große Wechselzeile unten: Versalhöhe 34 px, bei langem Text bis 22 px
     let eintraege = laufschrift(&s, e);
     let (text, farbe) = &eintraege[e.seite % eintraege.len()];
     let band = h - (fuss + 6);
     let datei = s.zeile.0;
     let mut kappe = 34;
-    while kappe > 30 && {
+    while kappe > 22 && {
         let g = sf.groesse_fuer(datei, kappe);
         sf.breite(text, datei, g, 0) > (w - 20) as f32
     } {
@@ -484,8 +530,8 @@ mod tests {
     fn wechselzeile_hat_erwartete_eintraege() {
         let s = stil("glut");
         let w = wetter(2, 10.0, 3.0, 20.0);
-        let netz = Netz { ms: Some(4.2), offline_seit: None, speed: Some(crate::data::Speed { down_mbit: 227.3, up_mbit: 70.1 }), pi_ip: Some("192.168.1.9".into()), router_ip: Some("192.168.1.1".into()) };
-        let e = Eingabe {
+        let netz = Netz { ms: Some(4.2), offline_seit: None, speed: Some(crate::data::Speed { down_mbit: 227.3, up_mbit: 70.1, zeit: 0 }), pi_ip: Some("192.168.1.9".into()), router_ip: Some("192.168.1.1".into()), router_ok: None };
+        let e = Eingabe { wetter_alter: 0, pihole_alter: 0,
             jetzt: Local::now(), wetter: Some(&w), pihole: Some((100, 55)), netz: Some(&netz), warnungen: &[],
             cpu: Some(66.6), laufzeit: "5 h 12 min".into(), seite: 0,
         };
@@ -494,27 +540,29 @@ mod tests {
         assert_eq!(t[0], "Wolkig 12–24°");
         assert!(t.contains(&"Ping 4 ms") && t.contains(&"↓227  ↑70 Mbit/s") && t.contains(&"Pi-hole · 55 geblockt"));
         assert!(t.contains(&"CPU 67 °C") && t.contains(&"Läuft 5 h 12 min"));
+        assert!(t.contains(&"Gefühlt 15° · Wind 20 km/h") || t.iter().any(|x| x.contains("km/h")));
         assert!(t.contains(&"Router 192.168.1.1") && t.contains(&"Pi 192.168.1.9"));
     }
 
     #[test]
     fn offline_verdraengt_alles() {
         let s = stil("glut");
-        let netz = Netz { ms: None, offline_seit: Some(Local::now()), speed: None, pi_ip: None, router_ip: None };
-        let e = Eingabe {
+        let netz = Netz { ms: None, offline_seit: Some(Local::now()), speed: None, pi_ip: None, router_ip: None, router_ok: None };
+        let e = Eingabe { wetter_alter: 0, pihole_alter: 0,
             jetzt: Local::now(), wetter: None, pihole: None, netz: Some(&netz), warnungen: &[], cpu: None,
             laufzeit: String::new(), seite: 0,
         };
         let z = laufschrift(&s, &e);
-        assert_eq!(z.len(), 1);
-        assert!(z[0].0.starts_with("OFFLINE seit "));
+        assert_eq!(z.len(), 2);
+        assert_eq!(z[0].0, "Kein Internet");
+        assert!(z[1].0.starts_with("seit "));
     }
 
     #[test]
     fn oberflaeche_wird_gezeichnet() {
         let mut sf = Schriften::neu("/nicht/da");
         let w = wetter(1, 10.0, 3.0, 17.0);
-        let e = Eingabe {
+        let e = Eingabe { wetter_alter: 0, pihole_alter: 0,
             jetzt: Local::now(), wetter: Some(&w), pihole: Some((10, 5)), netz: None, warnungen: &[], cpu: None,
             laufzeit: "1 h 0 min".into(), seite: 0,
         };
@@ -523,5 +571,18 @@ mod tests {
         assert_eq!((bild.w, bild.h), (480, 320));
         assert_eq!(bild.px(240, 200)[3], 0, "die Szene bleibt frei");
         assert_eq!(bild.px(5, 5)[3], 255, "Kopfleiste deckt");
+    }
+}
+
+#[cfg(test)]
+mod alter_tests {
+    use super::speedtest_alter;
+
+    #[test]
+    fn speedtest_alter_in_passender_einheit() {
+        assert_eq!(speedtest_alter(20), "Speedtest vor 1 min");
+        assert_eq!(speedtest_alter(40 * 60), "Speedtest vor 40 min");
+        assert_eq!(speedtest_alter(2 * 3600 + 500), "Speedtest vor 2 h");
+        assert_eq!(speedtest_alter(3 * 86400), "Speedtest vor 3 T");
     }
 }

@@ -474,6 +474,9 @@ impl Szene {
     }
 
     pub fn skelette_dazu(&mut self, anzahl: u32) {
+        if self.shaia_offline {
+            return;
+        }
         self.wartend = (self.wartend + anzahl).min(6);
     }
 
@@ -1061,9 +1064,20 @@ impl Szene {
             return;
         }
         if self.shaia_offline {
-            // Stromschläge in Abständen, dazwischen steht sie - als Dauerzustand sonst zu grell
-            let d = self.uniform(4.0, 7.0);
-            self.shaia.planen(vec![Schritt::neu("stehen_b").dauer(d), Schritt::neu("strom").dauer(1.6)], jetzt);
+            // Kein Netz: Shaia wartet geduldig, schaut sich um und denkt nach - Feinde gibt es keine
+            let wahl = self.rng.f64();
+            let plan = if wahl < 0.45 {
+                let d = self.uniform(5.0, 9.0);
+                vec![Schritt::neu("stehen_a").dauer(d)]
+            } else if wahl < 0.75 {
+                let d = self.uniform(2.5, 4.0);
+                vec![Schritt::neu("nachdenken").dauer(d)]
+            } else {
+                let neu = -self.shaia.richtung;
+                vec![Schritt::neu("drehen").start(Aktion::Richtung(neu)), Schritt::neu("suchen").dauer(3.0)]
+            };
+            self.shaia.planen(plan, jetzt);
+            self.shaia_aktionen();
             return;
         }
         match self.gegner_idx() {
@@ -1128,10 +1142,20 @@ impl Szene {
             self.shaia.hoehe = 0.0;
             self.shaia.vy = 0.0;
             self.shaia.vx_luft = 0.0;
-            self.shaia.planen(vec![Schritt::neu("strom").dauer(2.0)], jetzt);
+            self.shaia.planen(vec![Schritt::neu("nachdenken").dauer(3.0)], jetzt);
+            // Ohne Netz kein Kampf: Feinde und Geschosse verschwinden im Rauch, nichts staut sich auf
+            self.wartend = 0;
+            self.kugeln.clear();
+            self.geschosse.clear();
+            self.im_kampf = false;
+            let weg: Vec<f64> = self.skelette.iter().filter(|s| s.zustand != Zustand::Tot).map(|s| s.a.x).collect();
+            for x in weg {
+                self.effekt("smoke", x - 64.0, FUSSF - 128.0, 12.0);
+            }
+            self.skelette.clear();
         } else if !offline && self.shaia_offline {
             self.shaia_offline = false;
-            self.shaia.planen(vec![Schritt::neu("aufstehen"), Schritt::neu("stehen_a").dauer(1.0)], jetzt);
+            self.shaia.planen(vec![Schritt::neu("lachen").dauer(1.2), Schritt::neu("stehen_a").dauer(1.0)], jetzt);
         }
 
         // Gegner losschicken: für jede geblockte Anfrage eins, sonst ab und zu ein Bonus-Skelett
@@ -1159,7 +1183,7 @@ impl Szene {
             }
         }
 
-        if getippt && self.shaia.hoehe == 0.0 && !self.im_kampf && im_alltag(self.shaia.anim())
+        if getippt && !self.shaia_offline && self.shaia.hoehe == 0.0 && !self.im_kampf && im_alltag(self.shaia.anim())
             && self.shaia.anim() != Some("lagerfeuer")
         {
             self.shaia.planen(

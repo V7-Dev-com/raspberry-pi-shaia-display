@@ -23,40 +23,52 @@ struct Daten {
     wetter: Option<Wetter>,
     wetter_version: u64,
     pihole: Option<(i64, i64)>,
+    wetter_zeit: Option<Instant>,
+    pihole_zeit: Option<Instant>,
     netz: Option<Netz>,
 }
 
 /// Holt Wetter, Pi-hole und Netzstatus im Hintergrund, damit die Animation nie wartet.
+/// Jede Quelle hat ihren eigenen Faden - ein zäher Wetterabruf darf die Netzprüfung nicht aufhalten.
 fn daten_faden(d: Arc<Mutex<Daten>>) {
+    let dw = d.clone();
+    std::thread::spawn(move || loop {
+        let pause = match wetter_holen() {
+            Ok(w) => {
+                let mut g = dw.lock().unwrap();
+                g.wetter = Some(w);
+                g.wetter_version += 1;
+                g.wetter_zeit = Some(Instant::now());
+                WETTER_ALLE
+            }
+            Err(_) => 120.0,
+        };
+        std::thread::sleep(Duration::from_secs_f64(pause));
+    });
+    let dp = d.clone();
+    std::thread::spawn(move || loop {
+        if let Ok(p) = pihole_heute() {
+            let mut g = dp.lock().unwrap();
+            g.pihole = Some(p);
+            g.pihole_zeit = Some(Instant::now());
+        }
+        std::thread::sleep(Duration::from_secs_f64(PIHOLE_ALLE));
+    });
     std::thread::spawn(move || {
-        let (mut wetter_t, mut pihole_t, mut netz_t): (Option<Instant>, Option<Instant>, Option<Instant>) = (None, None, None);
-        let mut offline_seit = None;
+        let mut offline_seit: Option<chrono::DateTime<Local>> = None;
+        let mut fehlversuche = 0u32;
         loop {
-            let jetzt = Instant::now();
-            if wetter_t.is_none_or(|t| t.elapsed().as_secs_f64() >= WETTER_ALLE) {
-                match wetter_holen() {
-                    Ok(w) => {
-                        let mut g = d.lock().unwrap();
-                        g.wetter = Some(w);
-                        g.wetter_version += 1;
-                        wetter_t = Some(jetzt);
-                    }
-                    Err(_) => wetter_t = Some(jetzt - Duration::from_secs_f64(WETTER_ALLE - 120.0)),
-                }
+            let ms = online_pruefen();
+            // Erst nach zwei Fehlversuchen hintereinander gilt das Internet als weg (ein verlorenes Paket reicht nicht)
+            fehlversuche = if ms.is_some() { 0 } else { fehlversuche + 1 };
+            let pause = if fehlversuche == 1 { 4.0 } else { NETZ_ALLE };
+            if fehlversuche != 1 {
+                offline_seit = if fehlversuche == 0 { None } else { offline_seit.or(Some(Local::now())) };
+                let router_ip = router_ip();
+                let router_ok = if ms.is_none() { router_ip.as_deref().map(router_erreichbar) } else { None };
+                d.lock().unwrap().netz = Some(Netz { ms, offline_seit, speed: speed_lesen(), pi_ip: eigene_ip(), router_ip, router_ok });
             }
-            if pihole_t.is_none_or(|t| t.elapsed().as_secs_f64() >= PIHOLE_ALLE) {
-                if let Ok(p) = pihole_heute() {
-                    d.lock().unwrap().pihole = Some(p);
-                }
-                pihole_t = Some(jetzt);
-            }
-            if netz_t.is_none_or(|t| t.elapsed().as_secs_f64() >= NETZ_ALLE) {
-                let ms = online_pruefen();
-                offline_seit = if ms.is_some() { None } else { offline_seit.or(Some(Local::now())) };
-                d.lock().unwrap().netz = Some(Netz { ms, offline_seit, speed: speed_lesen(), pi_ip: eigene_ip(), router_ip: router_ip() });
-                netz_t = Some(jetzt);
-            }
-            std::thread::sleep(Duration::from_secs(1));
+            std::thread::sleep(Duration::from_secs_f64(pause));
         }
     });
 }
@@ -100,6 +112,8 @@ fn main() {
     let mut erstes = true;
     let mut puffer = vec![0u16; W * H];
     let mut letzter_schluessel = String::new();
+    // Die Temperatur nur einmal pro Sekunde lesen - ein Dateizugriff je Bild kostet auf dem Pi spürbar CPU
+    let (mut cpu_wert, mut cpu_zeit): (Option<f64>, Option<Instant>) = (None, None);
     let mut letzte_blockiert: Option<i64> = None;
 
     loop {
@@ -107,9 +121,12 @@ fn main() {
         let jetzt_dt = Local::now();
         let dt = anfang.duration_since(letzt).as_secs_f64().min(0.2);
         letzt = anfang;
-        let (wetter, wetter_v, pihole, netz) = {
+        let (wetter, wetter_v, pihole, netz, wetter_alter, pihole_alter) = {
             let g = daten.lock().unwrap();
-            (g.wetter.clone(), g.wetter_version, g.pihole, g.netz.clone())
+            (
+                g.wetter.clone(), g.wetter_version, g.pihole, g.netz.clone(),
+                g.wetter_zeit.map_or(0, |t| t.elapsed().as_secs() as i64), g.pihole_zeit.map_or(0, |t| t.elapsed().as_secs() as i64),
+            )
         };
         if let Some((_, geblockt)) = pihole {
             if let Some(alt) = letzte_blockiert {
@@ -128,17 +145,21 @@ fn main() {
             stil = stil_lesen();
             stil_zeit = Instant::now();
         }
+        if cpu_zeit.is_none_or(|t| t.elapsed().as_secs_f64() >= 1.0) {
+            cpu_wert = cpu_temperatur();
+            cpu_zeit = Some(Instant::now());
+        }
         let seite = (zeit(anfang) / SEITE_SEKUNDEN) as usize;
         let schluessel = format!(
-            "{}|{}|{:?}|{}|{}|{:?}",
-            jetzt_dt.format("%Y%m%d%H%M"), wetter_v, pihole, stil, seite,
-            netz.as_ref().map(|n| (n.ms.is_none(), n.offline_seit, n.speed.as_ref().map(|s| (s.down_mbit as i64, s.up_mbit as i64)), &n.pi_ip, &n.router_ip))
+            "{}|{}|{:?}|{}|{}|{:?}|{:?}",
+            jetzt_dt.format("%Y%m%d%H%M"), wetter_v, pihole, stil, seite, cpu_wert.map(|c| c.round() as i64),
+            netz.as_ref().map(|n| (n.ms.map(|m| m as i64), n.offline_seit, n.speed.as_ref().map(|s| (s.down_mbit as i64, s.up_mbit as i64)), &n.pi_ip, &n.router_ip))
         );
         if schluessel != letzter_schluessel || szene.statisch.is_none() {
-            let warn = hud::warnungen(wetter.as_ref());
-            let e = Eingabe {
+            let warn = if wetter_alter > 1800 { vec![] } else { hud::warnungen(wetter.as_ref()) };
+            let e = Eingabe { wetter_alter, pihole_alter,
                 jetzt: jetzt_dt, wetter: wetter.as_ref(), pihole, netz: netz.as_ref(), warnungen: &warn,
-                cpu: cpu_temperatur(), laufzeit: laufzeit(), seite,
+                cpu: cpu_wert, laufzeit: laufzeit(), seite,
             };
             szene.statisch_setzen(hud::zeichnen(&mut sf, &stil, W as i32, H as i32, KOPF, LEISTE, &e).0);
             letzter_schluessel = schluessel;

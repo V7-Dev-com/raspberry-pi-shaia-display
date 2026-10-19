@@ -6,9 +6,9 @@ use serde::Deserialize;
 use std::net::{SocketAddr, TcpStream};
 use std::time::{Duration, Instant};
 
-pub const WETTER_ALLE: f64 = 900.0;
-pub const PIHOLE_ALLE: f64 = 60.0;
-pub const NETZ_ALLE: f64 = 60.0;
+pub const WETTER_ALLE: f64 = 600.0;
+pub const PIHOLE_ALLE: f64 = 10.0;
+pub const NETZ_ALLE: f64 = 5.0;
 
 const BREITE: f64 = 35.17; // Nikosia
 const LAENGE: f64 = 33.35;
@@ -54,6 +54,8 @@ impl Wetter {
 pub struct Speed {
     pub down_mbit: f64,
     pub up_mbit: f64,
+    /// Unix-Zeit der Messung, 0 = unbekannt
+    pub zeit: i64,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -64,6 +66,8 @@ pub struct Netz {
     /// eigene Adresse und Router (Standardgateway), für die Anzeige
     pub pi_ip: Option<String>,
     pub router_ip: Option<String>,
+    /// nur bei fehlendem Internet geprüft: antwortet der Router?
+    pub router_ok: Option<bool>,
 }
 
 impl Netz {
@@ -121,6 +125,19 @@ pub fn online_pruefen() -> Option<f64> {
     None
 }
 
+/// Antwortet der Router? Eine abgewiesene Verbindung zählt auch - dann lebt das Gerät.
+pub fn router_erreichbar(ip: &str) -> bool {
+    for port in [80u16, 443, 8000, 53] {
+        let Ok(adr) = format!("{ip}:{port}").parse::<SocketAddr>() else { return false };
+        match TcpStream::connect_timeout(&adr, Duration::from_millis(800)) {
+            Ok(_) => return true,
+            Err(e) if e.kind() == std::io::ErrorKind::ConnectionRefused => return true,
+            Err(_) => {}
+        }
+    }
+    false
+}
+
 /// Eigene Adresse im Heimnetz (UDP-Verbindung ohne Datenversand wählt nur die Schnittstelle).
 pub fn eigene_ip() -> Option<String> {
     let s = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
@@ -149,7 +166,11 @@ pub fn router_ip() -> Option<String> {
 pub fn speed_lesen() -> Option<Speed> {
     let text = std::fs::read_to_string(SPEED_DATEI).ok()?;
     let j: serde_json::Value = serde_json::from_str(&text).ok()?;
-    Some(Speed { down_mbit: j.get("down_mbit")?.as_f64()?, up_mbit: j.get("up_mbit")?.as_f64()? })
+    Some(Speed {
+        down_mbit: j.get("down_mbit")?.as_f64()?,
+        up_mbit: j.get("up_mbit")?.as_f64()?,
+        zeit: j.get("zeit").and_then(|z| z.as_i64()).unwrap_or(0),
+    })
 }
 
 /// "3 T 2 h" oder "5 h 12 min", wie in v1.
