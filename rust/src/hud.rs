@@ -326,6 +326,14 @@ pub fn laufschrift(s: &Stil, e: &Eingabe) -> Vec<(String, Rgb)> {
             v.push((gross_wenn(s, &format!("↓{:.0}  ↑{:.0} Mbit/s", sp.down_mbit, sp.up_mbit)), s.gruen));
         }
     }
+    if let Some(n) = e.netz {
+        if let Some(r) = &n.router_ip {
+            v.push((gross_wenn(s, &format!("Router {r}")), s.zeile2_farbe));
+        }
+        if let Some(p) = &n.pi_ip {
+            v.push((gross_wenn(s, &format!("Pi {p}")), s.zeile2_farbe));
+        }
+    }
     if let Some((_, geblockt)) = e.pihole {
         v.push((gross_wenn(s, &format!("Pi-hole · {geblockt} geblockt")), s.zeile_farbe));
     }
@@ -476,7 +484,7 @@ mod tests {
     fn wechselzeile_hat_erwartete_eintraege() {
         let s = stil("glut");
         let w = wetter(2, 10.0, 3.0, 20.0);
-        let netz = Netz { ms: Some(4.2), offline_seit: None, speed: Some(crate::data::Speed { down_mbit: 227.3, up_mbit: 70.1 }) };
+        let netz = Netz { ms: Some(4.2), offline_seit: None, speed: Some(crate::data::Speed { down_mbit: 227.3, up_mbit: 70.1 }), pi_ip: Some("192.168.1.9".into()), router_ip: Some("192.168.1.1".into()) };
         let e = Eingabe {
             jetzt: Local::now(), wetter: Some(&w), pihole: Some((100, 55)), netz: Some(&netz), warnungen: &[],
             cpu: Some(66.6), laufzeit: "5 h 12 min".into(), seite: 0,
@@ -486,12 +494,13 @@ mod tests {
         assert_eq!(t[0], "Wolkig 12–24°");
         assert!(t.contains(&"Ping 4 ms") && t.contains(&"↓227  ↑70 Mbit/s") && t.contains(&"Pi-hole · 55 geblockt"));
         assert!(t.contains(&"CPU 67 °C") && t.contains(&"Läuft 5 h 12 min"));
+        assert!(t.contains(&"Router 192.168.1.1") && t.contains(&"Pi 192.168.1.9"));
     }
 
     #[test]
     fn offline_verdraengt_alles() {
         let s = stil("glut");
-        let netz = Netz { ms: None, offline_seit: Some(Local::now()), speed: None };
+        let netz = Netz { ms: None, offline_seit: Some(Local::now()), speed: None, pi_ip: None, router_ip: None };
         let e = Eingabe {
             jetzt: Local::now(), wetter: None, pihole: None, netz: Some(&netz), warnungen: &[], cpu: None,
             laufzeit: String::new(), seite: 0,

@@ -61,6 +61,9 @@ pub struct Netz {
     pub ms: Option<f64>,
     pub offline_seit: Option<DateTime<Local>>,
     pub speed: Option<Speed>,
+    /// eigene Adresse und Router (Standardgateway), für die Anzeige
+    pub pi_ip: Option<String>,
+    pub router_ip: Option<String>,
 }
 
 impl Netz {
@@ -118,6 +121,31 @@ pub fn online_pruefen() -> Option<f64> {
     None
 }
 
+/// Eigene Adresse im Heimnetz (UDP-Verbindung ohne Datenversand wählt nur die Schnittstelle).
+pub fn eigene_ip() -> Option<String> {
+    let s = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    s.connect("192.0.2.1:9").ok()?;
+    Some(s.local_addr().ok()?.ip().to_string())
+}
+
+/// Standardgateway aus dem Inhalt von /proc/net/route (Adresse steht als Hex, niederwertigstes Byte zuerst).
+pub fn gateway_aus_route(route: &str) -> Option<String> {
+    route.lines().skip(1).find_map(|z| {
+        let f: Vec<&str> = z.split_whitespace().collect();
+        if f.len() > 2 && f[1] == "00000000" && f[7] == "00000000" {
+            let v = u32::from_str_radix(f[2], 16).ok()?;
+            let b = v.to_le_bytes();
+            Some(format!("{}.{}.{}.{}", b[0], b[1], b[2], b[3]))
+        } else {
+            None
+        }
+    })
+}
+
+pub fn router_ip() -> Option<String> {
+    gateway_aus_route(&std::fs::read_to_string("/proc/net/route").ok()?)
+}
+
 pub fn speed_lesen() -> Option<Speed> {
     let text = std::fs::read_to_string(SPEED_DATEI).ok()?;
     let j: serde_json::Value = serde_json::from_str(&text).ok()?;
@@ -146,6 +174,15 @@ mod tests {
         assert_eq!(w.current.weather_code, 2);
         assert!(w.ist_tag());
         assert_eq!(w.daily.precipitation_probability_max[0], None);
+    }
+
+    #[test]
+    fn gateway_wird_aus_der_routentabelle_gelesen() {
+        let route = "Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\tMTU\tWindow\tIRTT\n\
+                     eth0\t00000000\t0101A8C0\t0003\t0\t0\t100\t00000000\t0\t0\t0\n\
+                     eth0\t0001A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0\n";
+        assert_eq!(gateway_aus_route(route).as_deref(), Some("192.168.1.1"));
+        assert_eq!(gateway_aus_route("Iface\n"), None);
     }
 
     #[test]

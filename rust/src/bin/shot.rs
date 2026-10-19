@@ -46,9 +46,9 @@ impl Werkstatt {
         let mut sf = Schriften::neu(assets_ordner().join("fonts"));
         let jetzt = Local.with_ymd_and_hms(2026, 10, 18, std, min, 0).unwrap();
         let netz = if offline {
-            Netz { ms: None, offline_seit: Some(Local.with_ymd_and_hms(2026, 10, 18, 18, 31, 0).unwrap()), speed: None }
+            Netz { ms: None, offline_seit: Some(Local.with_ymd_and_hms(2026, 10, 18, 18, 31, 0).unwrap()), speed: None, pi_ip: None, router_ip: None }
         } else {
-            Netz { ms: Some(5.0), offline_seit: None, speed }
+            Netz { ms: Some(5.0), offline_seit: None, speed, pi_ip: Some("192.168.1.9".into()), router_ip: Some("192.168.1.1".into()) }
         };
         let warn = hud::warnungen(Some(w));
         let e = Eingabe {

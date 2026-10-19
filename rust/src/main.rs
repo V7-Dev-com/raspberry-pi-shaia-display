@@ -53,7 +53,7 @@ fn daten_faden(d: Arc<Mutex<Daten>>) {
             if netz_t.is_none_or(|t| t.elapsed().as_secs_f64() >= NETZ_ALLE) {
                 let ms = online_pruefen();
                 offline_seit = if ms.is_some() { None } else { offline_seit.or(Some(Local::now())) };
-                d.lock().unwrap().netz = Some(Netz { ms, offline_seit, speed: speed_lesen() });
+                d.lock().unwrap().netz = Some(Netz { ms, offline_seit, speed: speed_lesen(), pi_ip: eigene_ip(), router_ip: router_ip() });
                 netz_t = Some(jetzt);
             }
             std::thread::sleep(Duration::from_secs(1));
@@ -132,7 +132,7 @@ fn main() {
         let schluessel = format!(
             "{}|{}|{:?}|{}|{}|{:?}",
             jetzt_dt.format("%Y%m%d%H%M"), wetter_v, pihole, stil, seite,
-            netz.as_ref().map(|n| (n.ms.is_none(), n.offline_seit, n.speed.as_ref().map(|s| (s.down_mbit as i64, s.up_mbit as i64))))
+            netz.as_ref().map(|n| (n.ms.is_none(), n.offline_seit, n.speed.as_ref().map(|s| (s.down_mbit as i64, s.up_mbit as i64)), &n.pi_ip, &n.router_ip))
         );
         if schluessel != letzter_schluessel || szene.statisch.is_none() {
             let warn = hud::warnungen(wetter.as_ref());
