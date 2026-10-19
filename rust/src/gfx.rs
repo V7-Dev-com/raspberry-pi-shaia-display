@@ -106,7 +106,7 @@ impl Img {
         let mut o = Img::neu(w, h);
         for (i, p) in r.pixels().enumerate() {
             let a = p[3] as u32;
-            let u = |c: u8| if a == 0 { 0 } else { ((c as u32 * 255 + a / 2) / a).min(255) as u8 };
+            let u = |c: u8| (c as u32 * 255 + a / 2).checked_div(a).unwrap_or(0).min(255) as u8;
             o.d[i * 4..i * 4 + 4].copy_from_slice(&[u(p[0]), u(p[1]), u(p[2]), a as u8]);
         }
         o

@@ -293,6 +293,26 @@ pub fn lade_halle(sprites: &Path) -> Result<Img, String> {
     Ok(halle)
 }
 
+/// Kleine, vollständige Testgrafiken ohne das separat lizenzierte Artwork.
+#[cfg(test)]
+pub(crate) fn test_assets() -> Rc<Assets> {
+    let bilder = || Rc::new(vec![Img::gefuellt(1, 1, [255; 4]); 16]);
+    let satz = |tabelle: &[(&'static str, &str, f32)]| tabelle.iter().map(|(name, _, fps)| {
+        let reihe = || (0..16).map(|_| Bild { bild: Img::gefuellt(1, 1, [255; 4]), dx: 0, dy: 0 }).collect();
+        (*name, Anim { reihe: Reihe { rechts: reihe(), links: reihe() }, fps: *fps })
+    }).collect();
+    Rc::new(Assets {
+        shaia: satz(SHAIA_ANIM), skelett: satz(SKELETT_ANIM),
+        truemmer: TRUEMMER_NAMEN.iter().map(|_| bilder()).collect(),
+        vfx: VFX_NAMEN.iter().map(|n| (*n, bilder())).collect(),
+        orbs: ELEMENTE.iter().map(|n| (*n, bilder())).collect(),
+        essen: ESSEN.iter().map(|n| (*n, bilder())).collect(),
+        kugel_bilder: KUGEL_ELEMENTE.iter().map(|n| (*n, bilder())).collect(),
+        feuer: bilder(), feuer_klein: bilder(), truhe: bilder(), funkeln_klein: bilder(),
+        halle: Img::neu(HALLE, H), halle_nacht: Img::neu(HALLE, H),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -28,7 +28,7 @@ pub struct Kms {
 
 pub enum Ausgabe {
     Kms(Kms),
-    Fb0(File),
+    Fb0 { datei: File, bytes: Vec<u8> },
     /// Test: schreibt das Bild etwa einmal pro Sekunde in diese Datei
     Png { pfad: PathBuf, letzte: std::time::Instant },
 }
@@ -73,40 +73,59 @@ fn kms_oeffnen() -> Result<Kms, String> {
         .and_then(|e| e.crtc())
         .or_else(|| res.crtcs().first().copied())
         .ok_or("keine CRTC")?;
-    let mut db = karte.create_dumb_buffer((W as u32, H as u32), DrmFourcc::Rgb565, 16).map_err(|e| e.to_string())?;
-    let fb = karte.add_framebuffer(&db, 16, 16).map_err(|e| e.to_string())?;
+    let db = karte.create_dumb_buffer((W as u32, H as u32), DrmFourcc::Rgb565, 16).map_err(|e| e.to_string())?;
+    let fb = match karte.add_framebuffer(&db, 16, 16) {
+        Ok(fb) => fb,
+        Err(e) => {
+            let _ = karte.destroy_dumb_buffer(db);
+            return Err(e.to_string());
+        }
+    };
+    // Ab hier auch bei Fehlern während der Einrichtung beide DRM-Ressourcen freigeben.
+    let mut kms = Kms { karte, db, fb };
     {
-        let mut map = karte.map_dumb_buffer(&mut db).map_err(|e| e.to_string())?;
+        let mut map = kms.karte.map_dumb_buffer(&mut kms.db).map_err(|e| e.to_string())?;
         map.as_mut().fill(0);
     }
-    karte.set_crtc(crtc, Some(fb), (0, 0), &[con.handle()], Some(mode)).map_err(|e| format!("set_crtc: {e}"))?;
-    Ok(Kms { karte, db, fb })
+    kms.karte.set_crtc(crtc, Some(fb), (0, 0), &[con.handle()], Some(mode)).map_err(|e| format!("set_crtc: {e}"))?;
+    Ok(kms)
+}
+
+impl Drop for Kms {
+    fn drop(&mut self) {
+        let _ = self.karte.destroy_framebuffer(self.fb);
+        let _ = self.karte.destroy_dumb_buffer(self.db);
+    }
 }
 
 impl Ausgabe {
     /// Wählt KMS, sonst fb0; `PI_AUSGABE=png:/pfad.png` schreibt Testbilder.
-    pub fn neu() -> Ausgabe {
+    pub fn neu() -> Result<Ausgabe, String> {
         if let Ok(v) = std::env::var("PI_AUSGABE") {
             if let Some(p) = v.strip_prefix("png:") {
-                return Ausgabe::Png { pfad: p.into(), letzte: std::time::Instant::now() - std::time::Duration::from_secs(9) };
+                return Ok(Ausgabe::Png { pfad: p.into(), letzte: std::time::Instant::now() - std::time::Duration::from_secs(9) });
             }
         }
         match kms_oeffnen() {
-            Ok(k) => Ausgabe::Kms(k),
+            Ok(k) => Ok(Ausgabe::Kms(k)),
             Err(e) => {
                 eprintln!("KMS nicht verfügbar ({e}), nehme /dev/fb0");
-                let fb = std::fs::OpenOptions::new().read(true).write(true).open("/dev/fb0").expect("/dev/fb0 öffnen");
-                Ausgabe::Fb0(fb)
+                let fb = std::fs::OpenOptions::new().read(true).write(true).open("/dev/fb0").map_err(|e| format!("/dev/fb0 öffnen: {e}"))?;
+                Ok(Ausgabe::Fb0 { datei: fb, bytes: vec![0; W * H * 2] })
             }
         }
     }
 
     /// Zeigt die Zeilen `oben..unten`; liefert die geschätzte Übertragungszeit (0 bei KMS, das wartet selbst).
-    pub fn zeigen(&mut self, bild: &Img, neu: &[u16], oben: usize, unten: usize, spi_hz: f64) -> f64 {
+    pub fn zeigen(&mut self, bild: &Img, neu: &[u16], oben: usize, unten: usize, spi_hz: f64) -> Result<f64, String> {
+        if oben > unten || unten > H || neu.len() < W * H || !spi_hz.is_finite() || spi_hz <= 0.0 {
+            return Err("ungültiger Display-Puffer oder Zeilenbereich/Takt".into());
+        }
         match self {
             Ausgabe::Kms(k) => {
                 let pitch = k.db.pitch() as usize;
-                if let Ok(mut map) = k.karte.map_dumb_buffer(&mut k.db) {
+                {
+                    let mut map = k.karte.map_dumb_buffer(&mut k.db).map_err(|e| format!("KMS-Puffer: {e}"))?;
                     let ziel = map.as_mut();
                     for y in oben..unten {
                         let zeile = &mut ziel[y * pitch..y * pitch + W * 2];
@@ -115,22 +134,62 @@ impl Ausgabe {
                         }
                     }
                 }
-                let _ = k.karte.dirty_framebuffer(k.fb, &[ClipRect::new(0, oben as u16, W as u16, unten as u16)]);
-                0.0
+                k.karte.dirty_framebuffer(k.fb, &[ClipRect::new(0, oben as u16, W as u16, unten as u16)])
+                    .map_err(|e| format!("KMS-Übertragung: {e}"))?;
+                Ok(0.0)
             }
-            Ausgabe::Fb0(f) => {
-                let bytes: Vec<u8> = neu[oben * W..unten * W].iter().flat_map(|v| v.to_le_bytes()).collect();
-                let _ = f.seek(SeekFrom::Start((oben * W * 2) as u64));
-                let _ = f.write_all(&bytes);
-                (unten - oben) as f64 * W as f64 * 16.0 / spi_hz * 1.15
+            Ausgabe::Fb0 { datei, bytes } => {
+                let bytes = &mut bytes[..(unten - oben) * W * 2];
+                for (d, v) in bytes.chunks_exact_mut(2).zip(&neu[oben * W..unten * W]) {
+                    d.copy_from_slice(&v.to_le_bytes());
+                }
+                datei.seek(SeekFrom::Start((oben * W * 2) as u64)).map_err(|e| format!("fb0 seek: {e}"))?;
+                datei.write_all(bytes).map_err(|e| format!("fb0 schreiben: {e}"))?;
+                Ok((unten - oben) as f64 * W as f64 * 16.0 / spi_hz * 1.15)
             }
             Ausgabe::Png { pfad, letzte } => {
                 if letzte.elapsed().as_secs_f64() >= 1.0 {
-                    let _ = bild.speichern(pfad);
+                    bild.speichern(pfad)?;
                     *letzte = std::time::Instant::now();
                 }
-                0.0
+                Ok(0.0)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fb0_schreibt_nur_die_geaenderten_zeilen_in_rgb565() {
+        let pfad = std::env::temp_dir().join(format!("shaia-fb-test-{}", std::process::id()));
+        let f = std::fs::OpenOptions::new().read(true).write(true).create_new(true).open(&pfad).unwrap();
+        f.set_len((W * H * 2) as u64).unwrap();
+        let mut aus = Ausgabe::Fb0 { datei: f, bytes: vec![0; W * H * 2] };
+        let bild = Img::neu(W, H);
+        let neu = vec![0x1234; W * H];
+        let dauer = aus.zeigen(&bild, &neu, 1, 3, 24_000_000.0).unwrap();
+        assert!(dauer > 0.0);
+        let bytes = std::fs::read(&pfad).unwrap();
+        assert!(bytes[..W * 2].iter().all(|b| *b == 0));
+        assert!(bytes[W * 2..W * 6].chunks_exact(2).all(|b| b == [0x34, 0x12]));
+        assert!(bytes[W * 6..].iter().all(|b| *b == 0));
+        assert!(aus.zeigen(&bild, &[], 0, H, 24_000_000.0).is_err());
+        assert!(aus.zeigen(&bild, &neu, 0, H + 1, 24_000_000.0).is_err());
+        std::fs::remove_file(pfad).unwrap();
+    }
+
+    #[test]
+    fn schreibfehler_werden_zurueckgegeben() {
+        let f = std::fs::OpenOptions::new().write(true).open("/dev/full").unwrap();
+        let mut aus = Ausgabe::Fb0 { datei: f, bytes: vec![0; W * H * 2] };
+        assert!(aus.zeigen(&Img::neu(W, H), &vec![0; W * H], 0, 1, 24_000_000.0).is_err());
+        let mut png = Ausgabe::Png {
+            pfad: PathBuf::from("/dev/null/kein.png"),
+            letzte: std::time::Instant::now() - std::time::Duration::from_secs(9),
+        };
+        assert!(png.zeigen(&Img::neu(W, H), &vec![0; W * H], 0, H, 24_000_000.0).is_err());
     }
 }

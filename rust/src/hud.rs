@@ -60,7 +60,7 @@ fn uebersetze(text: &str) -> String {
         if vorher_ok {
             for (de, en) in &keys {
                 let d: Vec<char> = de.chars().collect();
-                if klein[i..].starts_with(&d) && zeichen.get(i + d.len()).map_or(true, |c| !wort_zeichen(*c)) {
+                if klein[i..].starts_with(&d) && zeichen.get(i + d.len()).is_none_or(|c| !wort_zeichen(*c)) {
                     let orig: String = zeichen[i..i + d.len()].iter().collect();
                     let ersatz = if en.chars().any(|c| c.is_uppercase()) {
                         en.to_string()
@@ -360,7 +360,7 @@ pub fn laufschrift(s: &Stil, e: &Eingabe) -> Vec<(String, Rgb)> {
         if let Some(sp) = speed {
             // Der Speedtest läuft nur alle paar Stunden - das Alter dazusagen, damit er nicht wie "jetzt" wirkt;
             // Werte und Altershinweis werden gedämpft, sobald sie alt sind
-            let alter = if sp.zeit > 0 { (e.jetzt.timestamp() - sp.zeit).max(0) } else { 0 };
+            let alter = if sp.zeit > 0 { e.jetzt.timestamp().saturating_sub(sp.zeit).max(0) } else { 0 };
             let farbe = if alter > 4 * 3600 { s.zeile2_farbe } else { s.gruen };
             v.push((gross_wenn(s, &format!("↓{:.0}  ↑{:.0} Mbit/s", sp.down_mbit, sp.up_mbit)), farbe));
             if sp.zeit > 0 {

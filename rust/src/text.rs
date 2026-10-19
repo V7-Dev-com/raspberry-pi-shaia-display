@@ -57,8 +57,12 @@ impl Schriften {
     fn laden(&mut self, datei: &str) -> Rc<FontVec> {
         let pfad = if datei.starts_with('/') { PathBuf::from(datei) } else { self.ordner.join(datei) };
         let schluessel = pfad.to_string_lossy().into_owned();
-        if let Some(Some(f)) = self.cache.get(&schluessel) {
-            return f.clone();
+        if let Some(font) = self.cache.get(&schluessel) {
+            return match font {
+                Some(f) => f.clone(),
+                None if datei != DEJAVU_FETT && datei != DEJAVU => self.laden(DEJAVU_FETT),
+                None => panic!("keine Schrift gefunden: {datei}"),
+            };
         }
         let font = std::fs::read(&pfad)
             .ok()
@@ -326,6 +330,18 @@ mod tests {
         let mut s = schriften();
         let b = s.breite("Hallo", "gibtsnicht.ttf", 20, 0);
         assert!(b > 30.0 && b < 120.0, "{b}");
+    }
+
+    #[test]
+    fn fehlende_schrift_wird_nicht_erneut_vom_dateisystem_gelesen() {
+        let ordner = std::env::temp_dir().join(format!("shaia-font-cache-{}", std::process::id()));
+        std::fs::create_dir(&ordner).unwrap();
+        let mut s = Schriften::neu(&ordner);
+        let zuerst = s.laden("spaeter.ttf");
+        // Eine später auftauchende andere Schrift wird erst beim Neustart geladen.
+        std::fs::copy(DEJAVU, ordner.join("spaeter.ttf")).unwrap();
+        assert!(Rc::ptr_eq(&zuerst, &s.laden("spaeter.ttf")));
+        std::fs::remove_dir_all(ordner).unwrap();
     }
 
     #[test]

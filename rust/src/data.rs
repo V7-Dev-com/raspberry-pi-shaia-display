@@ -89,15 +89,24 @@ pub fn wetter_holen() -> Result<Wetter, String> {
 
 /// (Anfragen heute, davon geblockt) aus der FTL-Datenbank, nur lesend.
 pub fn pihole_heute() -> Result<(i64, i64), String> {
-    let heute = Local::now().date_naive().and_hms_opt(0, 0, 0).unwrap();
-    let seit = Local.from_local_datetime(&heute).earliest().map(|d| d.timestamp()).unwrap_or(0);
-    let platzhalter = GEBLOCKT.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let seit = tagesbeginn(Local::now())?;
     let con = rusqlite::Connection::open_with_flags(
         FTL_DB,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .map_err(|e| e.to_string())?;
     con.busy_timeout(Duration::from_secs(5)).map_err(|e| e.to_string())?;
+    pihole_ab(&con, seit)
+}
+
+fn tagesbeginn<Tz: TimeZone>(jetzt: DateTime<Tz>) -> Result<i64, String> {
+    let heute = jetzt.date_naive().and_hms_opt(0, 0, 0).unwrap();
+    jetzt.timezone().from_local_datetime(&heute).earliest().map(|d| d.timestamp())
+        .ok_or_else(|| "lokaler Tagesbeginn existiert nicht".into())
+}
+
+fn pihole_ab(con: &rusqlite::Connection, seit: i64) -> Result<(i64, i64), String> {
+    let platzhalter = GEBLOCKT.iter().map(|_| "?").collect::<Vec<_>>().join(",");
     let sql = format!(
         "SELECT COUNT(*), COALESCE(SUM(status IN ({platzhalter})), 0) FROM queries WHERE timestamp >= ?"
     );
@@ -149,7 +158,7 @@ pub fn eigene_ip() -> Option<String> {
 pub fn gateway_aus_route(route: &str) -> Option<String> {
     route.lines().skip(1).find_map(|z| {
         let f: Vec<&str> = z.split_whitespace().collect();
-        if f.len() > 2 && f[1] == "00000000" && f[7] == "00000000" {
+        if f.len() > 7 && f[1] == "00000000" && f[7] == "00000000" {
             let v = u32::from_str_radix(f[2], 16).ok()?;
             let b = v.to_le_bytes();
             Some(format!("{}.{}.{}.{}", b[0], b[1], b[2], b[3]))
@@ -210,5 +219,38 @@ mod tests {
     fn fehlendes_is_day_zaehlt_als_tag() {
         let w = Wetter::default();
         assert!(w.ist_tag());
+    }
+
+    #[test]
+    fn verkuerzte_routen_werden_ignoriert() {
+        for zeile in ["eth0 00000000 0101A8C0", "eth0 00000000 0101A8C0 0003 0 0 100"] {
+            assert_eq!(gateway_aus_route(&format!("Iface\n{zeile}\n")), None);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tages_tests {
+    use super::*;
+
+    #[test]
+    fn tagesbeginn_folgt_dem_lokalen_datum() {
+        let zone = chrono::FixedOffset::east_opt(3 * 3600).unwrap();
+        let jetzt = zone.with_ymd_and_hms(2026, 10, 19, 0, 1, 0).unwrap();
+        let beginn = tagesbeginn(jetzt).unwrap();
+        assert_eq!(beginn, chrono::Utc.with_ymd_and_hms(2026, 10, 18, 21, 0, 0).unwrap().timestamp());
+        assert_eq!(tagesbeginn(jetzt + chrono::Duration::days(1)).unwrap() - beginn, 86400);
+    }
+
+    #[test]
+    fn pihole_zaehlt_nur_ab_tagesbeginn_auch_bei_leerer_db() {
+        let con = rusqlite::Connection::open_in_memory().unwrap();
+        con.execute_batch("CREATE TABLE queries(timestamp REAL, status INTEGER);").unwrap();
+        assert_eq!(pihole_ab(&con, 100).unwrap(), (0, 0));
+        con.execute_batch("INSERT INTO queries VALUES (99.5, 1), (100, 1), (101, 2), (102, 18);").unwrap();
+        assert_eq!(pihole_ab(&con, 100).unwrap(), (3, 2));
+        assert_eq!(pihole_ab(&con, 103).unwrap(), (0, 0));
+        con.execute_batch("DROP TABLE queries;").unwrap();
+        assert!(pihole_ab(&con, 100).is_err());
     }
 }

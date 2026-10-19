@@ -4,9 +4,9 @@
 
 ![Raspberry Pi Animation Display – Shaia](github-bilder/banner.png)
 
-Made for a Raspberry Pi that runs [Pi-hole](https://pi-hole.net/). A 3.5" SPI display shows the clock, date, weather, internet status and the Pi-hole statistics (blocked requests today), while Shaia fights skeletons in a scrolling dungeon. Every ad that Pi-hole blocks sends a skeleton. Version 1 is written in Python, a Rust rewrite is planned.
+Made for a Raspberry Pi that runs [Pi-hole](https://pi-hole.net/). A 3.5" SPI display shows the clock, date, weather, internet status and the Pi-hole statistics (blocked requests today), while Shaia fights skeletons in a scrolling dungeon. Blocked Pi-hole requests feed a bounded skeleton queue; occasional bonus skeletons also appear. Version 1 is written in Python; version 2 is implemented in Rust in [`rust/`](rust/PLAN.md), with the same display design.
 
-*Deutsch:* Animierte Pixel-Art-Anzeige für den Raspberry Pi mit Pi-hole und 3,5-Zoll-SPI-Display: Uhr, Datum, Wetter, Internetstatus und Pi-hole-Statistik, dazu Heldin Shaia im Dungeon. Jede von Pi-hole geblockte Werbeanfrage schickt ein Skelett. Version 1 ist in Python, eine Rust-Version ist geplant.
+*Deutsch:* Animierte Pixel-Art-Anzeige für den Raspberry Pi mit Pi-hole und 3,5-Zoll-SPI-Display: Uhr, Datum, Wetter, Internetstatus und Pi-hole-Statistik, dazu Heldin Shaia im Dungeon. Jede von Pi-hole geblockte Werbeanfrage schickt ein Skelett. Version 1 ist in Python; Version 2 ist in Rust umgesetzt (siehe [`rust/PLAN.md`](rust/PLAN.md)).
 
 ## What it shows
 
@@ -30,13 +30,14 @@ Combat moments:
 
 - Raspberry Pi 4 (8 GB), Raspberry Pi OS Lite (Trixie, 64-bit), Pi-hole v6 on the same Pi
 - 3.5" SPI display, ILI9486, 480×320, touch ADS7846 (`dtoverlay=piscreen,drm,speed=32000000`)
-- Python 3.13, Pillow, numpy, `python3-kms++` (direct DRM/KMS output, fallback `/dev/fb0`), fontTools
+- v2: Rust 1.85+, native DRM/KMS output with `/dev/fb0` fallback, bundled SQLite, PNG assets and TrueType fonts
+- v1: Python 3.13, Pillow, numpy, `python3-kms++` (direct DRM/KMS output, fallback `/dev/fb0`), fontTools
 - systemd services and a timer for the speed test
 - Data: [Open-Meteo](https://open-meteo.com/) (weather, no key), Cloudflare speed test (`speed.cloudflare.com`), Pi-hole FTL database (read-only)
 
 Only the changed rows of the frame are sent over SPI, which keeps scrolling smooth at 32 MHz.
 
-## Resource use (measured on the Pi, 18 Oct 2026)
+## Resource use — Python v1 (measured on the Pi, 18 Oct 2026)
 
 | Measure | Value |
 |---|---|
@@ -48,7 +49,22 @@ Only the changed rows of the frame are sent over SPI, which keeps scrolling smoo
 
 The throttling flag of the Pi reported earlier under-voltage and throttling events since boot, none at the time of measurement. Use a proper 5 V / 3 A power supply.
 
-## Install (short)
+## Rust v2
+
+Build with Rust 1.85 or newer: `cd rust && cargo build --release --locked`.
+On a passively cooled Pi, use `nice -n 19 taskset -c 3 cargo build --release --locked`.
+Copy `target/release/shaia-display` to `/opt/pi-anzeige/shaia-display` and install
+`rust/pi-shaia.service`. It runs as `anzeige`, with the `video`, `pihole` and `input` groups;
+these accounts/groups must exist. Assets live in `/opt/pi-anzeige/assets`, configurable with `PI_ASSETS`.
+Install DejaVu fonts (`fonts-dejavu-core`) for the font fallback. Missing artwork makes Rust exit
+with a diagnostic; it does not switch to the Python text display. Missing `stil.txt` selects `klar`.
+
+The Rust service conflicts with the Python display services. Start the selected service with systemd;
+check its actual enabled/running state locally. The speed-test service/timer is separate;
+building the Rust `speedtest` binary does not switch that timer automatically.
+Historical Rust measurements and review limitations are in [`rust/PLAN.md`](rust/PLAN.md).
+
+## Python v1 install (short)
 
 1. Flash Raspberry Pi OS Lite, enable SSH, install Pi-hole if wanted.
 2. Enable the display overlay in `/boot/firmware/config.txt`.
@@ -73,7 +89,7 @@ picopico256 (Shaia), the Pi-hole team, Open-Meteo, Cloudflare for the free speed
 ## Roadmap
 
 - **v1 (this repo):** Python
-- **v2:** Rust rewrite, lower CPU and memory use, same look
+- **v2:** Rust implementation in `rust/`, lower CPU and memory use, same look
 
 ## License
 

@@ -51,6 +51,7 @@ impl Beruehrung {
                     }
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
                 Err(_) => {
                     self.datei = None;
                     break;

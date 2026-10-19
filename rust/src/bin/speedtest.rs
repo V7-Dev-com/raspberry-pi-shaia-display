@@ -93,7 +93,15 @@ fn jetzt() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
-fn main() {
+fn fehler_ergebnis(text: &str, fehler: &str, zeit: u64) -> serde_json::Value {
+    let mut alt: serde_json::Value = serde_json::from_str(text).ok()
+        .filter(serde_json::Value::is_object).unwrap_or_else(|| serde_json::json!({}));
+    alt["fehler"] = fehler.chars().take(200).collect::<String>().into();
+    alt["fehler_zeit"] = zeit.into();
+    alt
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ziel = std::env::var("PI_SPEED_DATEI").unwrap_or_else(|_| "/var/lib/pi-anzeige/internet.json".into());
     let stueck = Arc::new(vec![b'0'; 5_000_000]);
     let ergebnis: Result<serde_json::Value, String> = (|| {
@@ -107,15 +115,36 @@ fn main() {
         Ok(j) => j,
         Err(e) => {
             // Letzte gute Messung behalten, nur den Fehler dazuschreiben.
-            let mut alt: serde_json::Value = std::fs::read_to_string(&ziel).ok()
-                .and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::json!({}));
-            alt["fehler"] = e.chars().take(200).collect::<String>().into();
-            alt["fehler_zeit"] = jetzt().into();
-            alt
+            let alt = std::fs::read_to_string(&ziel).unwrap_or_default();
+            fehler_ergebnis(&alt, &e, jetzt())
         }
     };
     let tmp = format!("{ziel}.tmp");
-    std::fs::write(&tmp, j.to_string()).expect("Ergebnis schreiben");
-    std::fs::rename(&tmp, &ziel).expect("Ergebnis ablegen");
+    std::fs::write(&tmp, j.to_string())?;
+    std::fs::rename(&tmp, &ziel)?;
     println!("{j}");
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fehler_behaelt_die_letzte_messung() {
+        let j = fehler_ergebnis(r#"{"down_mbit":123.4,"zeit":7}"#, "offline", 42);
+        assert_eq!(j["down_mbit"], 123.4);
+        assert_eq!(j["zeit"], 7);
+        assert_eq!(j["fehler"], "offline");
+        assert_eq!(j["fehler_zeit"], 42);
+    }
+
+    #[test]
+    fn fehler_vertraegt_fremdes_oder_kaputtes_json() {
+        for text in ["", "{", "null", "[]", "123", r#""text""#] {
+            let j = fehler_ergebnis(text, &"ü".repeat(300), 42);
+            assert_eq!(j["fehler"].as_str().unwrap().chars().count(), 200);
+            assert_eq!(j["fehler_zeit"], 42);
+        }
+    }
 }

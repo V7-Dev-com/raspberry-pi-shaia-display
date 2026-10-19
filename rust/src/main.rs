@@ -8,6 +8,7 @@ use shaia_display::output::{spi_takt, Ausgabe};
 use shaia_display::scene::{Szene, NACHT};
 use shaia_display::text::Schriften;
 use shaia_display::touch::Beruehrung;
+use std::fmt::Write as _;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -20,12 +21,12 @@ const STIL_DATEI: &str = "/opt/pi-anzeige/stil.txt";
 
 #[derive(Default)]
 struct Daten {
-    wetter: Option<Wetter>,
+    wetter: Option<Arc<Wetter>>,
     wetter_version: u64,
     pihole: Option<(i64, i64)>,
     wetter_zeit: Option<Instant>,
     pihole_zeit: Option<Instant>,
-    netz: Option<Netz>,
+    netz: Option<Arc<Netz>>,
 }
 
 /// Holt Wetter, Pi-hole und Netzstatus im Hintergrund, damit die Animation nie wartet.
@@ -36,8 +37,8 @@ fn daten_faden(d: Arc<Mutex<Daten>>) {
         let pause = match wetter_holen() {
             Ok(w) => {
                 let mut g = dw.lock().unwrap();
-                g.wetter = Some(w);
-                g.wetter_version += 1;
+                g.wetter = Some(Arc::new(w));
+                g.wetter_version = g.wetter_version.wrapping_add(1);
                 g.wetter_zeit = Some(Instant::now());
                 WETTER_ALLE
             }
@@ -60,17 +61,24 @@ fn daten_faden(d: Arc<Mutex<Daten>>) {
         loop {
             let ms = online_pruefen();
             // Erst nach zwei Fehlversuchen hintereinander gilt das Internet als weg (ein verlorenes Paket reicht nicht)
-            fehlversuche = if ms.is_some() { 0 } else { fehlversuche + 1 };
+            fehlversuche = if ms.is_some() { 0 } else { fehlversuche.saturating_add(1) };
             let pause = if fehlversuche == 1 { 4.0 } else { NETZ_ALLE };
             if fehlversuche != 1 {
                 offline_seit = if fehlversuche == 0 { None } else { offline_seit.or(Some(Local::now())) };
                 let router_ip = router_ip();
                 let router_ok = if ms.is_none() { router_ip.as_deref().map(router_erreichbar) } else { None };
-                d.lock().unwrap().netz = Some(Netz { ms, offline_seit, speed: speed_lesen(), pi_ip: eigene_ip(), router_ip, router_ok });
+                // Datei- und Socket-Zugriffe niemals unter dem gemeinsamen Mutex ausführen.
+                let netz = Netz { ms, offline_seit, speed: speed_lesen(), pi_ip: eigene_ip(), router_ip, router_ok };
+                d.lock().unwrap().netz = Some(Arc::new(netz));
             }
             std::thread::sleep(Duration::from_secs_f64(pause));
         }
     });
+}
+
+/// Die Szene nimmt höchstens sechs wartende Gegner an; vor der Konvertierung begrenzen.
+fn blockierte_differenz(alt: i64, neu: i64) -> u32 {
+    neu.saturating_sub(alt).clamp(0, 6) as u32
 }
 
 fn stil_lesen() -> String {
@@ -81,7 +89,7 @@ fn stil_lesen() -> String {
         .unwrap_or_else(|| "klar".into())
 }
 
-fn main() {
+fn main() -> Result<(), String> {
     let sprites = assets_ordner().join("shaia");
     let fehlt = grafiken_fehlen(&sprites);
     if !fehlt.is_empty() {
@@ -104,7 +112,7 @@ fn main() {
     let mut tippen = Beruehrung::neu();
     let daten = Arc::new(Mutex::new(Daten::default()));
     daten_faden(daten.clone());
-    let mut ausgabe = Ausgabe::neu();
+    let mut ausgabe = Ausgabe::neu()?;
     let spi_hz = spi_takt();
     let (mut stil, mut stil_zeit) = (stil_lesen(), Instant::now());
     let mut letzt = Instant::now();
@@ -112,6 +120,7 @@ fn main() {
     let mut erstes = true;
     let mut puffer = vec![0u16; W * H];
     let mut letzter_schluessel = String::new();
+    let mut schluessel = String::with_capacity(256);
     // Die Temperatur nur einmal pro Sekunde lesen - ein Dateizugriff je Bild kostet auf dem Pi spürbar CPU
     let (mut cpu_wert, mut cpu_zeit): (Option<f64>, Option<Instant>) = (None, None);
     let mut letzte_blockiert: Option<i64> = None;
@@ -131,7 +140,7 @@ fn main() {
         if let Some((_, geblockt)) = pihole {
             if let Some(alt) = letzte_blockiert {
                 if geblockt > alt {
-                    szene.skelette_dazu((geblockt - alt) as u32);
+                    szene.skelette_dazu(blockierte_differenz(alt, geblockt));
                 }
             }
             letzte_blockiert = Some(geblockt);
@@ -150,19 +159,20 @@ fn main() {
             cpu_zeit = Some(Instant::now());
         }
         let seite = (zeit(anfang) / SEITE_SEKUNDEN) as usize;
-        let schluessel = format!(
+        schluessel.clear();
+        let _ = write!(schluessel,
             "{}|{}|{:?}|{}|{}|{:?}|{:?}",
             jetzt_dt.format("%Y%m%d%H%M"), wetter_v, pihole, stil, seite, cpu_wert.map(|c| c.round() as i64),
-            netz.as_ref().map(|n| (n.ms.map(|m| m as i64), n.offline_seit, n.speed.as_ref().map(|s| (s.down_mbit as i64, s.up_mbit as i64)), &n.pi_ip, &n.router_ip))
+            netz.as_ref().map(|n| (n.ms.map(|m| m as i64), n.offline_seit, n.speed.as_ref().map(|s| (s.down_mbit as i64, s.up_mbit as i64, s.zeit)), &n.pi_ip, &n.router_ip, n.router_ok))
         );
         if schluessel != letzter_schluessel || szene.statisch.is_none() {
-            let warn = if wetter_alter > 1800 { vec![] } else { hud::warnungen(wetter.as_ref()) };
+            let warn = if wetter_alter > 1800 { vec![] } else { hud::warnungen(wetter.as_deref()) };
             let e = Eingabe { wetter_alter, pihole_alter,
-                jetzt: jetzt_dt, wetter: wetter.as_ref(), pihole, netz: netz.as_ref(), warnungen: &warn,
+                jetzt: jetzt_dt, wetter: wetter.as_deref(), pihole, netz: netz.as_deref(), warnungen: &warn,
                 cpu: cpu_wert, laufzeit: laufzeit(), seite,
             };
             szene.statisch_setzen(hud::zeichnen(&mut sf, &stil, W as i32, H as i32, KOPF, LEISTE, &e).0);
-            letzter_schluessel = schluessel;
+            std::mem::swap(&mut letzter_schluessel, &mut schluessel);
         }
 
         let bild = szene.zeichnen(zeit(anfang));
@@ -178,7 +188,7 @@ fn main() {
         };
         let mut uebertragung = 0.0;
         if unten > oben {
-            uebertragung = ausgabe.zeigen(&bild, &puffer, oben, unten, spi_hz);
+            uebertragung = ausgabe.zeigen(&bild, &puffer, oben, unten, spi_hz)?;
         }
         erstes = false;
         std::mem::swap(&mut vorher, &mut puffer);
@@ -188,5 +198,20 @@ fn main() {
         if rest > 0.0 {
             std::thread::sleep(Duration::from_secs_f64(rest));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn blockierte_differenz_vertraegt_tageswechsel_und_grosse_werte() {
+        assert_eq!(blockierte_differenz(10, 13), 3);
+        assert_eq!(blockierte_differenz(13, 13), 0);
+        assert_eq!(blockierte_differenz(1000, 2), 0);
+        assert_eq!(blockierte_differenz(0, i64::MAX), 6);
+        assert_eq!(blockierte_differenz(i64::MIN, i64::MAX), 6);
+        assert_eq!(blockierte_differenz(i64::MAX, i64::MIN), 0);
     }
 }

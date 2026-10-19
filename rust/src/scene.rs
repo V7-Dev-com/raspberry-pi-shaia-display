@@ -243,7 +243,7 @@ impl Akteur {
     /// Bewegt, prüft das Schritt-Ende und liefert die ausgelösten Treffer.
     pub fn tick(&mut self, dt: f64, jetzt: f64, anims: &AnimSatz, ctx: &Kontext) -> Vec<Treffer> {
         self.physik(dt);
-        let Some(s) = self.schritt.clone() else { return vec![] };
+        let Some(s) = self.schritt.as_ref() else { return vec![] };
         self.x += s.vx * self.richtung as f64 * dt;
         let (_, roh, n) = self.bildnummer(jetzt, anims);
         let mut ausgeloest = vec![];
@@ -477,7 +477,7 @@ impl Szene {
         if self.shaia_offline {
             return;
         }
-        self.wartend = (self.wartend + anzahl).min(6);
+        self.wartend = self.wartend.saturating_add(anzahl).min(6);
     }
 
     fn kontext(&self) -> Kontext {
@@ -1371,5 +1371,51 @@ impl Szene {
             }
         }
         bild
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rueckstau_ist_auch_bei_grossen_zaehlern_begrenzt() {
+        let mut s = Szene::neu(test_assets(), Some(1), 12, 1000.0);
+        s.skelette_dazu(1);
+        s.skelette_dazu(u32::MAX);
+        assert_eq!(s.wartend, 6);
+        s.shaia_offline = true;
+        s.skelette_dazu(u32::MAX);
+        assert_eq!(s.wartend, 6);
+    }
+
+    #[test]
+    fn treffer_wird_nur_einmal_ausgeloest_und_schritt_endet() {
+        let assets = test_assets();
+        let mut a = Akteur::neu(100.0, 1, 0, "stehen_a");
+        let ctx = Kontext { skelette: vec![], gegner_kommt: None };
+        a.planen(vec![Schritt::neu("knie").dauer(1.0).treffer(1, tr(1, 100.0, Art::Normal))], 10.0);
+        assert!(a.tick(0.01, 10.0, &assets.shaia, &ctx).is_empty());
+        assert_eq!(a.tick(0.1, 10.2, &assets.shaia, &ctx).len(), 1);
+        assert!(a.tick(0.1, 10.4, &assets.shaia, &ctx).is_empty());
+        a.tick(0.1, 11.0, &assets.shaia, &ctx);
+        assert!(a.frei());
+    }
+
+    #[test]
+    fn offline_raeumt_kampf_auf_und_erholt_sich() {
+        let mut s = Szene::neu(test_assets(), Some(1), 12, 1000.0);
+        s.skelette_dazu(6);
+        s.schritt(1.0 / 24.0, 12, 1000.0, false, false);
+        assert!(!s.skelette.is_empty());
+        s.schritt(1.0 / 24.0, 12, 1000.1, true, true);
+        assert!(s.shaia_offline && !s.im_kampf);
+        assert!(s.skelette.is_empty() && s.kugeln.is_empty() && s.geschosse.is_empty());
+        assert_eq!(s.wartend, 0);
+        assert_eq!(s.shaia.hoehe, 0.0);
+        assert_eq!(s.shaia.anim(), Some("nachdenken"));
+        s.schritt(1.0 / 24.0, 12, 1000.2, false, false);
+        assert!(!s.shaia_offline);
+        assert_eq!(s.shaia.anim(), Some("lachen"));
     }
 }
