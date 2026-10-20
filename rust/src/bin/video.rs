@@ -1,6 +1,6 @@
 //! Rendert eine Vorführung der Anzeige als rohe RGB-Bilder auf stdout (24 fps), zum Einspeisen in ffmpeg.
 //! Aufruf:  PI_SPRACHE=en PI_ASSETS=../assets cargo run --release --bin video -- [sekunden] [seed] [stil] | ffmpeg ...
-use chrono::{Duration, Local, TimeZone};
+use chrono::{Duration, Local, Timelike};
 use shaia_display::assets::{assets_ordner, Assets, H, W};
 use shaia_display::data::*;
 use shaia_display::hud::{self, Eingabe};
@@ -18,14 +18,16 @@ fn main() {
     let stil = arg(3).unwrap_or("glut".into());
     let a = Rc::new(Assets::laden(&assets_ordner().join("shaia")).expect("Grafiken"));
     let mut sf = Schriften::neu(assets_ordner().join("fonts"));
-    let stunde = 14;
+    // Die Uhr zeigt die echte aktuelle Zeit und läuft während des Videos weiter
+    let start = Local::now();
+    let stunde = start.hour();
     let mut sz = Szene::neu(a, Some(seed), stunde, 5000.0);
     sz.bonus_ab = 1e9;
     sz.spaziergang_ab = 12.0 + 5000.0;
     sz.kugel_ab = 5000.0 + 38.0;
     sz.truhe_ab = 5000.0 + 48.0;
     sz.truhe_fuer_stunde = stunde;
-    let start = Local.with_ymd_and_hms(2026, 10, 20, 18, 42, 0).unwrap();
+    sz.nacht = stunde >= NACHT.0 || stunde < NACHT.1;
     let w = Wetter {
         current: Aktuell { temperature_2m: 19.0, apparent_temperature: 18.0, weather_code: 2, wind_speed_10m: 14.0,
             relative_humidity_2m: 64.0, is_day: Some(1), uv_index: Some(3.0), wind_gusts_10m: Some(24.0) },
