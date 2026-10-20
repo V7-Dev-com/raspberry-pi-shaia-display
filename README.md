@@ -31,7 +31,9 @@ Combat moments:
 ![The display on a desk](media/display-photo.jpg)
 
 
-[`media/shaia-display-demo-en.mp4`](media/shaia-display-demo-en.mp4) - one minute of the display in English (rendered with `rust/src/bin/video.rs`).
+![Preview](media/preview.gif)
+
+Full one-minute video in English: [`media/shaia-display-demo-en.mp4`](media/shaia-display-demo-en.mp4) (open the file page on GitHub to play it; rendered with `rust/src/bin/video.rs`).
 
 ## Hardware and stack
 
