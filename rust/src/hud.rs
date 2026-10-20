@@ -429,12 +429,10 @@ pub fn zeichnen(sf: &mut Schriften, stil_name: &str, w: i32, h: i32, kopf: i32, 
         sf.schreiben(&mut bild, (w / 2) as f32, uy, &uhr, uhr_datei, gr, s.uhr_farbe, 'm', a, None);
     }
     let (wt, mo) = if englisch() { (&WOCHENTAGE_EN, &MONATE_EN) } else { (&WOCHENTAGE_DE, &MONATE_DE) };
-    let datum = format!(
-        "{}, {}. {}",
-        wt[e.jetzt.weekday().num_days_from_monday() as usize],
-        e.jetzt.day(),
-        mo[e.jetzt.month0() as usize]
-    );
+    let (tag, monat) = (e.jetzt.day(), mo[e.jetzt.month0() as usize]);
+    let wochentag = wt[e.jetzt.weekday().num_days_from_monday() as usize];
+    // Deutsch: "Dienstag, 20. Oktober" - Englisch: "Tuesday, October 20"
+    let datum = if englisch() { format!("{wochentag}, {monat} {tag}") } else { format!("{wochentag}, {tag}. {monat}") };
     let datum = if s.gross_datum { datum.to_uppercase() } else { datum };
     sf.setzen(&mut bild, (w / 2) as f32, 69, &datum, s.datum.0, 16, s.datum_farbe, 'm', Some(210.0), art);
 
