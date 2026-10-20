@@ -37,7 +37,7 @@ Weniger CPU und RAM, schneller Start, kein `pip`/`apt`-Ballast auf dem Pi.
 2. **Szene:** gleiche Konstanten und Regeln wie v1. Ein Zufallsvergleich ist nicht möglich; stattdessen
    Probeläufe: keine Abstürze über viele simulierte Stunden, alle Zustände erreichbar (Kampf, Sprung des Skeletts, Kiste, Lagerfeuer, Offline), Kiste und Feuer an den festen Stellen.
 3. **Auf dem Pi:** CPU und RAM gemessen und gegen v1 gestellt (v1: ca. 27 % eines Kerns, 90 MB, 24 fps).
-4. **Dienst:** `pi-shaia.service` startet die Rust-Binärdatei; Python (`pi-ruinrunner`) bleibt als separater Rückfall verfügbar. Aktivierung und tatsächlichen Dienststatus am Pi prüfen.
+4. **Dienst:** `pi-shaia.service` startet die Rust-Binärdatei; **Stand 20.10.2026: die Python-Version v1 ist vom Pi und aus dem Repo entfernt (steht in der Git-Historie); auch der Speedtest läuft als Rust-Binärdatei.**
 
 ## Arbeitspakete (auch für Codex geeignet)
 

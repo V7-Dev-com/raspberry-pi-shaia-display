@@ -4,9 +4,9 @@
 
 ![Raspberry Pi Animation Display – Shaia](github-bilder/banner.png)
 
-Made for a Raspberry Pi that runs [Pi-hole](https://pi-hole.net/). A 3.5" SPI display shows the clock, date, weather, internet status and the Pi-hole statistics (blocked requests today), while Shaia fights skeletons in a scrolling dungeon. Blocked Pi-hole requests feed a bounded skeleton queue; occasional bonus skeletons also appear. Version 1 is written in Python; version 2 is implemented in Rust in [`rust/`](rust/PLAN.md), with the same display design.
+Made for a Raspberry Pi that runs [Pi-hole](https://pi-hole.net/). A 3.5" SPI display shows the clock, date, weather, internet status and the Pi-hole statistics (blocked requests today), while Shaia fights skeletons in a scrolling dungeon. Blocked Pi-hole requests feed a bounded skeleton queue; occasional bonus skeletons also appear. It is written in Rust (in [`rust/`](rust/PLAN.md)): one binary, no Python.
 
-*Deutsch:* Animierte Pixel-Art-Anzeige für den Raspberry Pi mit Pi-hole und 3,5-Zoll-SPI-Display: Uhr, Datum, Wetter, Internetstatus und Pi-hole-Statistik, dazu Heldin Shaia im Dungeon. Jede von Pi-hole geblockte Werbeanfrage schickt ein Skelett. Version 1 ist in Python; Version 2 ist in Rust umgesetzt (siehe [`rust/PLAN.md`](rust/PLAN.md)).
+*Deutsch:* Animierte Pixel-Art-Anzeige für den Raspberry Pi mit Pi-hole und 3,5-Zoll-SPI-Display: Uhr, Datum, Wetter, Internetstatus und Pi-hole-Statistik, dazu Heldin Shaia im Dungeon. Jede von Pi-hole geblockte Werbeanfrage schickt ein Skelett. Geschrieben in Rust, eine einzelne Binärdatei ohne Python.
 
 ## What it shows
 
@@ -30,49 +30,36 @@ Combat moments:
 
 - Raspberry Pi 4 (8 GB), Raspberry Pi OS Lite (Trixie, 64-bit), Pi-hole v6 on the same Pi
 - 3.5" SPI display, ILI9486, 480×320, touch ADS7846 (`dtoverlay=piscreen,drm,speed=32000000`)
-- v2: Rust 1.85+, native DRM/KMS output with `/dev/fb0` fallback, bundled SQLite, PNG assets and TrueType fonts
-- v1: Python 3.13, Pillow, numpy, `python3-kms++` (direct DRM/KMS output, fallback `/dev/fb0`), fontTools
-- systemd services and a timer for the speed test
+- Rust 1.85+, native DRM/KMS output with `/dev/fb0` fallback, bundled SQLite, PNG assets and TrueType fonts
+- systemd service for the display and a timer for the speed test
 - Data: [Open-Meteo](https://open-meteo.com/) (weather, no key), Cloudflare speed test (`speed.cloudflare.com`), Pi-hole FTL database (read-only)
 
 Only the changed rows of the frame are sent over SPI, which keeps scrolling smooth at 32 MHz.
 
-## Resource use — Python v1 (measured on the Pi, 18 Oct 2026)
+## Resource use (measured on the Pi, 20 Oct 2026)
 
 | Measure | Value |
 |---|---|
-| CPU of the scene process | about 27 % of one core (≈ 7 % of the whole Pi), 24 fps |
-| RAM | about 90 MB resident (1.1 % of 8 GB) |
-| Installed size | 4.8 MB code and assets |
-| SoC temperature | about 67 °C with passive cooling, running together with Pi-hole |
-| Speed test | a few seconds every 3 h (timer), negligible |
+| CPU of the display process | about 7-9 % of one core, 24 fps |
+| RAM | about 40 MB resident (0.5 % of 8 GB) |
+| Binary | about 6 MB |
+| SoC temperature | about 62-64 °C with passive cooling, together with Pi-hole |
+| Speed test | about 15 s every 3 h (timer), negligible |
 
-The throttling flag of the Pi reported earlier under-voltage and throttling events since boot, none at the time of measurement. Use a proper 5 V / 3 A power supply.
+The throttling flag of the Pi can report under-voltage and throttling events since boot. Use a proper 5 V / 3 A power supply.
 
-## Rust v2
+## Build and install
 
 Build with Rust 1.85 or newer: `cd rust && cargo build --release --locked`.
-On a passively cooled Pi, use `nice -n 19 taskset -c 3 cargo build --release --locked`.
-Copy `target/release/shaia-display` to `/opt/pi-anzeige/shaia-display` and install
-`rust/pi-shaia.service`. It runs as `anzeige`, with the `video`, `pihole` and `input` groups;
-these accounts/groups must exist. Assets live in `/opt/pi-anzeige/assets`, configurable with `PI_ASSETS`.
-Install DejaVu fonts (`fonts-dejavu-core`) for the font fallback. Missing artwork makes Rust exit
-with a diagnostic; it does not switch to the Python text display. Missing `stil.txt` selects `klar`.
-
-The Rust service conflicts with the Python display services. Start the selected service with systemd;
-check its actual enabled/running state locally. The speed-test service/timer is separate;
-building the Rust `speedtest` binary does not switch that timer automatically.
-Historical Rust measurements and review limitations are in [`rust/PLAN.md`](rust/PLAN.md).
-
-## Python v1 install (short)
+On a passively cooled Pi, use `nice -n 19 taskset -c 3 cargo build --release --locked` (a build on all cores heats the Pi to about 83 °C).
 
 1. Flash Raspberry Pi OS Lite, enable SSH, install Pi-hole if wanted.
-2. Enable the display overlay in `/boot/firmware/config.txt`.
-3. `sudo apt install python3-pil python3-numpy python3-kms++ python3-fonttools`
-4. Download the artwork yourself (see below). Copy the `sprites` folder of the Shaia package to `/opt/pi-anzeige/assets/shaia` (it must contain `shaia`, `skeleton`, `vfx`, `prop`, `item`, `background`), or set `PI_ASSETS` to your assets folder. Without the artwork the program prints where to get it and falls back to the plain text display. Missing fonts fall back to DejaVu.
-5. Copy the files to `/opt/pi-anzeige`, install the `pi-*.service` / `pi-speedtest.timer` units, start `pi-ruinrunner`.
+2. Enable the display overlay in `/boot/firmware/config.txt` (`dtoverlay=piscreen,drm,speed=32000000`).
+3. Copy `target/release/shaia-display` and `target/release/speedtest` to `/opt/pi-anzeige/`, install `rust/pi-shaia.service`, `rust/pi-speedtest.service` and `rust/pi-speedtest.timer`, then `systemctl enable --now pi-shaia pi-speedtest.timer`. The service runs as `anzeige` with the `video`, `pihole` and `input` groups; these accounts/groups must exist.
+4. Download the artwork yourself (see below). Copy the `sprites` folder of the Shaia package to `/opt/pi-anzeige/assets/shaia` (it must contain `shaia`, `skeleton`, `vfx`, `prop`, `item`, `background`), or set `PI_ASSETS` to your assets folder. Without the artwork the program prints where to get it and exits. Copy the font files of this repo to `/opt/pi-anzeige/assets/fonts`; missing fonts fall back to DejaVu (`fonts-dejavu-core`).
 
-The style is chosen by the single word in `stil.txt` (`glut` is the default dungeon look).
+The style is chosen by the single word in `stil.txt` (`glut` is the default dungeon look; `klar`, `v7`, `retro` also exist; a missing file selects `klar`). Set `PI_SPRACHE=en` for English texts.
+Plan, measurements and review notes are in [`rust/PLAN.md`](rust/PLAN.md).
 
 ## Artwork – not included, please download it yourself
 
@@ -84,12 +71,12 @@ Fonts (SIL Open Font License, from Google Fonts): [Rajdhani](https://fonts.googl
 
 ## Thanks
 
-picopico256 (Shaia), the Pi-hole team, Open-Meteo, Cloudflare for the free speed endpoint, and the authors of Pillow, numpy and libkms++.
+picopico256 (Shaia), the Pi-hole team, Open-Meteo and Cloudflare for the free speed endpoint.
 
 ## Roadmap
 
-- **v1 (this repo):** Python
-- **v2:** Rust implementation in `rust/`, lower CPU and memory use, same look
+- **Done:** Rust implementation (a single binary, no Python), 7-9 % of one core, about 40 MB RAM
+- **Ideas:** thread watchdog, display re-connect, Rust-only test images for the README
 
 ## License
 
