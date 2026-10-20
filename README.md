@@ -26,6 +26,10 @@ Combat moments:
 
 ![Combat scenes](github-bilder/overview-combat.png)
 
+## Demo video
+
+[`media/shaia-display-demo-en.mp4`](media/shaia-display-demo-en.mp4) - one minute of the display in English (rendered with `rust/src/bin/video.rs`).
+
 ## Hardware and stack
 
 - Raspberry Pi 4 (8 GB), Raspberry Pi OS Lite (Trixie, 64-bit), Pi-hole v6 on the same Pi
