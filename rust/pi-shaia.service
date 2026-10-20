@@ -2,7 +2,6 @@
 Description=Shaia-Anzeige (Rust) auf dem 3,5-Zoll-Display (Uhr, Wetter, Pi-hole, Internet)
 After=network-online.target pihole-FTL.service time-sync.target
 Wants=network-online.target
-Conflicts=pi-ruinrunner.service pi-anzeige.service pi-pixelwelt.service
 
 [Service]
 User=anzeige
