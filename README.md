@@ -26,7 +26,10 @@ Combat moments:
 
 ![Combat scenes](github-bilder/overview-combat.png)
 
-## Demo video
+## Photo and demo video
+
+![The display on a desk](media/display-photo.jpg)
+
 
 [`media/shaia-display-demo-en.mp4`](media/shaia-display-demo-en.mp4) - one minute of the display in English (rendered with `rust/src/bin/video.rs`).
 
